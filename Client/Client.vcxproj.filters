@@ -27,5 +27,19 @@
     <ClInclude Include="..\Share\HardCodedData.h">
       <Filter>Shared Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Share\SocketExampleShared.h">
+      <Filter>Shared Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Share\SocketSendRecvTools.h">
+      <Filter>Shared Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Share\SocketSendRecvTools.c">
+      <Filter>Shared Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
