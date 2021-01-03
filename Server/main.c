@@ -23,7 +23,7 @@
 
 #define MAX_LOOPS 3
 
-#define SEND_STR_SIZE 35
+#define MSG_TYPE_MAX_LENG 27
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
@@ -268,13 +268,13 @@ static void CleanupWorkerThreads()
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
 static DWORD ServiceThread(SOCKET* t_socket)
 {
-	char SendStr[SEND_STR_SIZE];
+	char SendStr[MSG_TYPE_MAX_LENG];
 
 	BOOL Done = FALSE;
 	TransferResult_t SendRes;
 	TransferResult_t RecvRes;
 
-	strcpy(SendStr, "Welcome to this server!");
+	strcpy(SendStr, "SERVER_APPROVED");
 	// TODO safe mode
 
 	SendRes = SendString(SendStr, *t_socket);

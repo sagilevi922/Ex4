@@ -187,6 +187,7 @@ int main(int argc, char* argv[])
 		else // Succsefull connection
 			reconnect = 0;
 	}
+	//TODO 4 AND 5 SUDDEN DISCONNECTION
 
 	// Succsefull connection message
 	printf("%s%s:%d ", SUCCESSFUL_CONNECT_MSG, server_address, server_port);
@@ -200,8 +201,13 @@ int main(int argc, char* argv[])
 	*/
 	TransferResult_t SendRes;
 
-	////// client step 2 - send username
-	SendRes = SendString(username, m_socket);
+	////// client step 2 - CLIENT_REQUEST
+	char msg[USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1];
+	strcpy(msg, "CLIENT_REQUEST:");
+
+	strcat_s(msg, (USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1), username);
+
+	SendRes = SendString(msg, m_socket);
 
 	if (SendRes == TRNS_FAILED)
 	{
