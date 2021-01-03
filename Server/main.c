@@ -23,7 +23,7 @@
 
 #define MAX_LOOPS 3
 
-#define MSG_TYPE_MAX_LENG 27
+#define MSG_MAX_LENG 100
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
@@ -268,8 +268,8 @@ static void CleanupWorkerThreads()
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
 static DWORD ServiceThread(SOCKET* t_socket)
 {
-	char SendStr[MSG_TYPE_MAX_LENG];
-
+	char SendStr[MSG_MAX_LENG];
+	char* msg = NULL;
 	BOOL Done = FALSE;
 	TransferResult_t SendRes;
 	TransferResult_t RecvRes;
@@ -315,13 +315,21 @@ static DWORD ServiceThread(SOCKET* t_socket)
 		//If got "bye" send back "see ya!" and then end the thread
 		//Otherwise, send "I don't understand"
 
-		if (STRINGS_ARE_EQUAL(AcceptedStr, "hello"))
+		if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_DISCONNECT"))
 		{
-			strcpy(SendStr, "what's up?");
+			break;
 		}
-		else if (STRINGS_ARE_EQUAL(AcceptedStr, "how are you?"))
+		else if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_VERSUS"))
 		{
-			strcpy(SendStr, "great");
+			//GET USRENAME FROM THE OTHER THREAD 
+			//if (msg_creator(USERNAME_MAX_LENG + SERVER_INVITE_LENG + 1,&msg, "SERVER_INVITE:", "Oppenet name"))
+			//{
+			//	printf("Connection closed while reading, closing thread.\n");
+			//	closesocket(*t_socket);
+			//	return 1;
+			//}
+			strcpy(SendStr, "SERVER_INVITE:");
+			strcat_s(SendStr, MSG_MAX_LENG, "Oppenet name");
 		}
 		else if (STRINGS_ARE_EQUAL(AcceptedStr, "bye"))
 		{
@@ -330,7 +338,8 @@ static DWORD ServiceThread(SOCKET* t_socket)
 		}
 		else
 		{
-			strcpy(SendStr, "I don't understand");
+			free(AcceptedStr);
+			continue;
 		}
 
 		SendRes = SendString(SendStr, *t_socket);

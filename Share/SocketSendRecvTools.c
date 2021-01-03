@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 /* 
  This file was written for instruction purposes for the 
@@ -134,4 +136,25 @@ TransferResult_t ReceiveString( char** OutputStrPtr, SOCKET sd )
 	}
 		
 	return RecvRes;
+}
+
+int msg_creator(int size, char** msg, char* msg_type, char* param)
+{
+	if (NULL == *msg)
+	{
+		*msg = (char*)malloc(size * sizeof(char));
+		if (NULL == *msg)
+		{
+			printf("memory allocation failed");
+			return 1;
+		}
+		strcpy(*msg, msg_type);
+		strcat_s(*msg, size, param);
+	}
+	else
+	{
+		strcat_s(*msg, size, ";");
+		strcat_s(*msg, size, param);
+	}
+	return 0;
 }

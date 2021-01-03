@@ -50,26 +50,90 @@ static DWORD RecvDataThread(void)
 	return 0;
 }
 
+int check_recieved(char* recieved_str)
+{
+	if (recieved_str == TRNS_FAILED)
+	{
+		printf("Socket error while trying to write data to socket\n");
+		return 1;
+	}
+	else if (recieved_str == TRNS_DISCONNECTED)
+	{
+		printf("Server closed connection. Bye!\n");
+		return 1;
+	}
+	return 0;
+}
+
+
+
 //Sending data to the server
 static DWORD SendDataThread(void)
 {
 	char SendStr[256];
 	TransferResult_t SendRes;
-
+	TransferResult_t RecvRes;
+	int choice = 0;
 	while (1)
 	{
-		gets_s(SendStr, sizeof(SendStr)); //Reading a string from the keyboard
+		char* AcceptedStr = NULL;
+		RecvRes = ReceiveString(&AcceptedStr, m_socket);
 
-		if (STRINGS_ARE_EQUAL(SendStr, "quit"))
-			return 0x555; //"quit" signals an exit from the client side
-
-		SendRes = SendString(SendStr, m_socket);
-
-		if (SendRes == TRNS_FAILED)
-		{
-			printf("Socket error while trying to write data to socket\n");
+		if (check_recieved(AcceptedStr))
 			return 0x555;
+
+		printf("%s\n", AcceptedStr);
+
+		if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_APPROVED"))
+		{
+			printf(SERVER_MAIN_MENU_MSG);
+			choice = get_input_choice();
+			if (choice == 2) //quitting the game
+			{
+
+				SendRes = SendString("CLIENT_DISCONNECT", m_socket);
+
+				if (SendRes == TRNS_FAILED)
+				{
+					printf("Socket error while trying to write data to socket\n");
+					return 0x555;
+				}
+				free(AcceptedStr);
+				printf("Quitting...\n");
+
+				return;
+			}
+			else //want to play someone
+			{
+				SendRes = SendString("CLIENT_VERSUS", m_socket);
+
+				if (SendRes == TRNS_FAILED)
+				{
+					printf("Socket error while trying to write data to socket\n");
+					return 0x555;
+				}
+			}
 		}
+		else // unreconize msg
+		{
+			printf("%s what?????\n", AcceptedStr);
+			// fix recoginze msg likes SERVER_INVITE:Oppenet name
+		}
+		free(AcceptedStr);
+
+
+		//gets_s(SendStr, sizeof(SendStr)); //Reading a string from the keyboard
+
+		//if (STRINGS_ARE_EQUAL(SendStr, "quit"))
+		//	return 0x555; //"quit" signals an exit from the client side
+
+		//SendRes = SendString(SendStr, m_socket);
+
+		//if (SendRes == TRNS_FAILED)
+		//{
+		//	printf("Socket error while trying to write data to socket\n");
+		//	return 0x555;
+		//}
 	}
 }
 // Client.exe <server ip> <server port> <username>
@@ -99,8 +163,29 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port, char*
 	return 0;
 }
 
-//CLIENT MAIN
 // Client.exe <server ip> <server port> <username>
+int get_input_choice()
+{
+	char user_input[256];
+	// TODO FIX SIZE OF INPUT 
+
+	while (1)
+	{
+		gets_s(user_input, sizeof(user_input)); //Reading a string from the keyboard
+
+		if (STRINGS_ARE_EQUAL(user_input, "1"))
+			return 1;
+
+		else if (STRINGS_ARE_EQUAL(user_input, "2"))
+		{
+			return 2;
+		}
+		else
+			printf("Please choose again: 1/2?\n");
+	}
+}
+
+//CLIENT MAIN
 
 int main(int argc, char* argv[])
 {
@@ -109,7 +194,7 @@ int main(int argc, char* argv[])
 	char* username;
 
 	SOCKADDR_IN clientService;
-	HANDLE hThread[2];
+	HANDLE hThread;
 
 	if (init_input_vars(argv, argc, &server_port, &server_address, &username))
 		return 1;
@@ -160,6 +245,8 @@ int main(int argc, char* argv[])
 	// Call the connect function, passing the created socket and the sockaddr_in structure as parameters. 
 	// Check for general errors.
 	int reconnect = 1;
+	int choice = 0;
+
 	while (reconnect)
 	{
 
@@ -167,22 +254,13 @@ int main(int argc, char* argv[])
 		{
 			printf("%s%s:%d\n", FAILED__CONNECT_MSG, server_address, server_port);
 			printf("%s", WAITING_OPTIONS);
-
-			char user_input[256];
-			// TODO FIX SIZE OF INPUT 
-			gets_s(user_input, sizeof(user_input)); //Reading a string from the keyboard
-			
-			if (STRINGS_ARE_EQUAL(user_input, "1"))
-				reconnect = 1;
-
-			else if (STRINGS_ARE_EQUAL(user_input, "2"))
+			choice = get_input_choice();
+			if (choice == 2)
 			{
 				printf("Exiting...\n");
 				WSACleanup();
 				return;
 			}
-			else
-				printf("Please choose again: 1/2?\n");
 		}
 		else // Succsefull connection
 			reconnect = 0;
@@ -215,7 +293,7 @@ int main(int argc, char* argv[])
 		return 0x555;
 	}
 
-	hThread[0] = CreateThread(
+	hThread = CreateThread(
 		NULL,
 		0,
 		(LPTHREAD_START_ROUTINE)SendDataThread,
@@ -223,23 +301,14 @@ int main(int argc, char* argv[])
 		0,
 		NULL
 	);
-	hThread[1] = CreateThread(
-		NULL,
-		0,
-		(LPTHREAD_START_ROUTINE)RecvDataThread,
-		NULL,
-		0,
-		NULL
-	);
+	WaitForSingleObject(
+		hThread,
+		INFINITE); /* Waiting for the process to end */
 
-	WaitForMultipleObjects(2, hThread, FALSE, INFINITE);
 
-	TerminateThread(hThread[0], 0x555);
-	TerminateThread(hThread[1], 0x555);
+	TerminateThread(hThread, 0x555);
 
-	CloseHandle(hThread[0]);
-	CloseHandle(hThread[1]);
-
+	CloseHandle(hThread);
 	closesocket(m_socket);
 
 	WSACleanup();
