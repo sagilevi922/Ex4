@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 #include <stdio.h>
@@ -44,11 +45,11 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 		return 1;
 	}
 
-	if (*input_args[2] == '0') // TODO test for port length
+	if (*input_args[1] == '0') // TODO test for port length
 		*server_port = 0;
 	else
 	{
-		*server_port = strtol(input_args[2], NULL, 10);
+		*server_port = strtol(input_args[1], NULL, 10);
 		if (*server_port == 0) // case of failed strtol
 		{
 			printf("invalid argument for server_port");

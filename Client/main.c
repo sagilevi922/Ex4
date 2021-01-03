@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 #include <stdio.h>
@@ -13,6 +14,7 @@
 
 #include "SocketExampleShared.h"
 #include "SocketSendRecvTools.h"
+#include "msg.h"
 
 
 SOCKET m_socket;
@@ -70,16 +72,15 @@ static DWORD SendDataThread(void)
 		}
 	}
 }
-
 // Client.exe <server ip> <server port> <username>
-int init_input_vars(char* input_args[], int num_of_args, int* server_port)
+
+int init_input_vars(char* input_args[], int num_of_args, int* server_port, char** server_address, char** username)
 {
-	if (num_of_args != 2) //Not enough arguments.
+	if (num_of_args != 4) //Not enough arguments.
 	{
-		printf("Invalid input, Please provide encrypted file path, enc/dec key, number of threads and action mode('e'/'d')");
+		printf("Invalid input')");
 		return 1;
 	}
-
 	if (*input_args[2] == '0') // TODO test for port length
 		*server_port = 0;
 	else
@@ -87,18 +88,31 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 		*server_port = strtol(input_args[2], NULL, 10);
 		if (*server_port == 0) // case of failed strtol
 		{
-			printf("invalid argument for key");
+			printf("invalid argument for server_port");
 			return 1;
 		}
 	}
+
+	*server_address = input_args[1];
+	*username = input_args[3];
+
 	return 0;
 }
+
+//CLIENT MAIN
+// Client.exe <server ip> <server port> <username>
 
 int main(int argc, char* argv[])
 {
 	int server_port = 0;
+	char* server_address;
+	char* username;
+
 	SOCKADDR_IN clientService;
 	HANDLE hThread[2];
+
+	if (init_input_vars(argv, argc, &server_port, &server_address, &username))
+		return 1;
 
 	// Initialize Winsock.
 	WSADATA wsaData; //Create a WSADATA object called wsaData.
@@ -145,12 +159,37 @@ int main(int argc, char* argv[])
 
 	// Call the connect function, passing the created socket and the sockaddr_in structure as parameters. 
 	// Check for general errors.
-	if (connect(m_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
-		printf("Failed to connect.\n");
-		WSACleanup();
-		return;
+	int reconnect = 1;
+	while (reconnect)
+	{
+
+		if (connect(m_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR)
+		{
+			printf("%s%s:%d\n", FAILED__CONNECT_MSG, server_address, server_port);
+			printf("%s", WAITING_OPTIONS);
+
+			char user_input[256];
+			// TODO FIX SIZE OF INPUT 
+			gets_s(user_input, sizeof(user_input)); //Reading a string from the keyboard
+			
+			if (STRINGS_ARE_EQUAL(user_input, "1"))
+				reconnect = 1;
+
+			else if (STRINGS_ARE_EQUAL(user_input, "2"))
+			{
+				printf("Exiting...\n");
+				WSACleanup();
+				return;
+			}
+			else
+				printf("Please choose again: 1/2?\n");
+		}
+		else // Succsefull connection
+			reconnect = 0;
 	}
 
+	// Succsefull connection message
+	printf("%s%s:%d ", SUCCESSFUL_CONNECT_MSG, server_address, server_port);
 	// Send and receive data.
 	/*
 		In this code, two integers are used to keep track of the number of bytes that are sent and received.
@@ -159,6 +198,16 @@ int main(int argc, char* argv[])
 		the active socket, a char buffer, the number of bytes to send or receive, and any flags to use.
 
 	*/
+	TransferResult_t SendRes;
+
+	////// client step 2 - send username
+	SendRes = SendString(username, m_socket);
+
+	if (SendRes == TRNS_FAILED)
+	{
+		printf("Socket error while trying to write data to socket\n");
+		return 0x555;
+	}
 
 	hThread[0] = CreateThread(
 		NULL,
