@@ -143,6 +143,12 @@
   <ItemGroup>
     <ClInclude Include="..\Share\HardCodedData.h" />
     <ClInclude Include="..\Share\msg.h" />
+    <ClInclude Include="..\Share\SocketExampleShared.h" />
+    <ClInclude Include="..\Share\SocketSendRecvTools.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Share\SocketSendRecvTools.c" />
+    <ClCompile Include="main.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
