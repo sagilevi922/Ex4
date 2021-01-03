@@ -1,11 +1,20 @@
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 #include <stdio.h>
 #include <string.h>
+#include <windows.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
 
 #include "SocketExampleShared.h"
 #include "SocketSendRecvTools.h"
+//#include "HardCodedData.h"
+#include "msg.h"
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
@@ -27,9 +36,33 @@ static void CleanupWorkerThreads();
 static DWORD ServiceThread(SOCKET* t_socket);
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-
-void MainServer()
+int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 {
+	if (num_of_args != 2) //Not enough arguments.
+	{
+		printf("Invalid input, Please provide encrypted file path, enc/dec key, number of threads and action mode('e'/'d')");
+		return 1;
+	}
+
+	if (*input_args[2] == '0') // TODO test for port length
+		*server_port = 0;
+	else
+	{
+		*server_port = strtol(input_args[2], NULL, 10);
+		if (*server_port == 0) // case of failed strtol
+		{
+			printf("invalid argument for server_port");
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// SERVER MAIN
+int main(int argc, char* argv[])
+{
+	int server_port = 0;
+
 	int Ind;
 	int Loop;
 	SOCKET MainSocket = INVALID_SOCKET;
@@ -37,6 +70,9 @@ void MainServer()
 	SOCKADDR_IN service;
 	int bindRes;
 	int ListenRes;
+
+	if (init_input_vars(argv, argc, &server_port))
+		return 1;
 
 	// Initialize Winsock.
 	WSADATA wsaData;
@@ -58,6 +94,7 @@ void MainServer()
 	{
 		printf("Error at socket( ): %ld\n", WSAGetLastError());
 		goto server_cleanup_1;
+		//TODO CLEAR SERVE
 	}
 
 	// Bind the socket.
@@ -78,6 +115,8 @@ void MainServer()
 		printf("The string \"%s\" cannot be converted into an ip address. ending program.\n",
 			SERVER_ADDRESS_STR);
 		goto server_cleanup_2;
+		//TODO CLEAR SERVE
+
 	}
 
 	service.sin_family = AF_INET;
@@ -99,6 +138,8 @@ void MainServer()
 	{
 		printf("bind( ) failed with error %ld. Ending program\n", WSAGetLastError());
 		goto server_cleanup_2;
+		//TODO CLEAR SERVE
+
 	}
 
 	// Listen on the Socket.
@@ -107,6 +148,8 @@ void MainServer()
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
 		goto server_cleanup_2;
+		//TODO CLEAR SERVE
+
 	}
 
 	// Initialize all thread handles to NULL, to mark that they have not been initialized
@@ -122,6 +165,7 @@ void MainServer()
 		{
 			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
 			goto server_cleanup_3;
+			//TODO CLEAR SERVE
 		}
 
 		printf("Client Connected.\n");
@@ -151,7 +195,6 @@ void MainServer()
 	} // for ( Loop = 0; Loop < MAX_LOOPS; Loop++ )
 
 server_cleanup_3:
-
 	CleanupWorkerThreads();
 
 server_cleanup_2:
@@ -231,6 +274,7 @@ static DWORD ServiceThread(SOCKET* t_socket)
 	TransferResult_t RecvRes;
 
 	strcpy(SendStr, "Welcome to this server!");
+	// TODO safe mode
 
 	SendRes = SendString(SendStr, *t_socket);
 

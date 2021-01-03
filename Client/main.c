@@ -71,9 +71,32 @@ static DWORD SendDataThread(void)
 	}
 }
 
-
-void MainClient()
+// Client.exe <server ip> <server port> <username>
+int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 {
+	if (num_of_args != 2) //Not enough arguments.
+	{
+		printf("Invalid input, Please provide encrypted file path, enc/dec key, number of threads and action mode('e'/'d')");
+		return 1;
+	}
+
+	if (*input_args[2] == '0') // TODO test for port length
+		*server_port = 0;
+	else
+	{
+		*server_port = strtol(input_args[2], NULL, 10);
+		if (*server_port == 0) // case of failed strtol
+		{
+			printf("invalid argument for key");
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int main(int argc, char* argv[])
+{
+	int server_port = 0;
 	SOCKADDR_IN clientService;
 	HANDLE hThread[2];
 
