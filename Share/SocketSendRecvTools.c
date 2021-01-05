@@ -79,7 +79,7 @@ TransferResult_t ReceiveBuffer( char* OutputBuffer, int BytesToReceive, SOCKET s
 		BytesJustTransferred = recv(sd, CurPlacePtr, RemainingBytesToReceive, 0);
 		if ( BytesJustTransferred == SOCKET_ERROR ) 
 		{
-			printf("recv() failed, error %d\n", WSAGetLastError() );
+			//printf("recv() failed, error %d\n", WSAGetLastError() );
 			return TRNS_FAILED;
 		}		
 		else if ( BytesJustTransferred == 0 )
@@ -157,4 +157,27 @@ int msg_creator(int size, char** msg, char* msg_type, char* param)
 		strcat_s(*msg, size, param);
 	}
 	return 0;
+}
+
+int set_socket_timeout(DWORD timeout, SOCKET sd)
+{
+	if (setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(DWORD)))
+	{
+		perror("setsockopt");
+		return 1;
+	}
+	return 0;
+}
+
+void disconnect_socket(SOCKET* sd)
+{ // DISCONNECT AND CREATES NEW SOCKET
+	closesocket(*sd);
+
+	*sd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	// Check for errors to ensure that the socket is a valid socket.
+	if (*sd == INVALID_SOCKET) {
+		printf("Error at socket(): %ld\n", WSAGetLastError());
+		WSACleanup();
+		return NULL;
+	}
 }

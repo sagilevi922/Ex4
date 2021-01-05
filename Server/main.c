@@ -21,15 +21,17 @@
 
 #define NUM_OF_CLIENTS 2
 
+#define MAX_THREADS 3
+
 #define MAX_LOOPS 3
 
 #define MSG_MAX_LENG 100
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
-HANDLE ThreadHandles[NUM_OF_CLIENTS];
-SOCKET ThreadInputs[NUM_OF_CLIENTS];
-
+HANDLE ThreadHandles[MAX_THREADS];
+SOCKET ThreadInputs[MAX_THREADS];
+int active_users = 0;
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 static int FindFirstUnusedThreadSlot();
@@ -56,6 +58,199 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 			return 1;
 		}
 	}
+	return 0;
+}
+
+
+/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
+
+static int FindFirstUnusedThreadSlot()
+{
+	int Ind;
+
+	for (Ind = 0; Ind < NUM_OF_CLIENTS; Ind++)
+	{
+		if (ThreadHandles[Ind] == NULL)
+			break;
+		else
+		{
+			// poll to check if thread finished running:
+			DWORD Res = WaitForSingleObject(ThreadHandles[Ind], 0);
+			//DWORD Res = 1;
+
+			if (Res == WAIT_OBJECT_0) // this thread finished running
+			{
+				CloseHandle(ThreadHandles[Ind]);
+				ThreadHandles[Ind] = NULL;
+				break;
+			}
+		}
+	}
+
+	return Ind;
+}
+
+/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
+
+static void CleanupWorkerThreads()
+{
+	int Ind;
+
+	for (Ind = 0; Ind < NUM_OF_CLIENTS; Ind++)
+	{
+		if (ThreadHandles[Ind] != NULL)
+		{
+			// poll to check if thread finished running:
+			DWORD Res = WaitForSingleObject(ThreadHandles[Ind], INFINITE);
+
+			if (Res == WAIT_OBJECT_0)
+			{
+				closesocket(ThreadInputs[Ind]);
+				CloseHandle(ThreadHandles[Ind]);
+				ThreadHandles[Ind] = NULL;
+				break;
+			}
+			else
+			{
+				printf("Waiting for thread failed. Ending program\n");
+				return;
+			}
+		}
+	}
+}
+
+/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
+
+//Service thread is the thread that opens for each successful client connection and "talks" to the client.
+static DWORD ServiceThread(SOCKET* t_socket)
+{
+	
+	printf("thread start.\n");
+	char SendStr[MSG_MAX_LENG];
+	char* msg = NULL;
+	BOOL Done = FALSE;
+	TransferResult_t SendRes;
+	TransferResult_t RecvRes;
+	int Ind = 0;
+	//Sleep(1000);
+
+	char* AcceptedStr = NULL;
+
+	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
+
+	if (RecvRes == TRNS_FAILED)
+	{
+		printf("Service socket error while reading, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+	else if (RecvRes == TRNS_DISCONNECTED)
+	{
+		printf("Connection closed while reading, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+	else
+	{
+		printf("Got string : %s\n", AcceptedStr);
+	}
+	
+	// check how active users
+	printf("trying to connect, current actrive users: %d\n", active_users);
+	if (active_users==2)
+	{
+		printf("No slots available for client, dropping the connection.\n");
+		strcpy_s(SendStr, 27, "SERVER_DENIED:room is full");
+
+		SendRes = SendString(SendStr, *t_socket);
+
+		if (SendRes == TRNS_FAILED)
+		{
+			printf("Service socket error while writing, closing thread.\n");
+		}
+		printf("Conversation ended.\n");
+		closesocket(*t_socket); //Closing the socket, dropping the connection.
+		return 1;
+	}
+	active_users++;
+
+	strcpy_s(SendStr,16, "SERVER_APPROVED");
+	SendRes = SendString(SendStr, *t_socket);
+	if (SendRes == TRNS_FAILED)
+	{
+		printf("Service socket error while writing, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+
+	strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
+	// TODO safe mode
+
+	SendRes = SendString(SendStr, *t_socket);
+
+	if (SendRes == TRNS_FAILED)
+	{
+		printf("Service socket error while writing, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+
+	while (!Done)
+	{
+		AcceptedStr = NULL;
+		RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+
+		if (RecvRes == TRNS_FAILED)
+		{
+			printf("Service socket error while reading, closing thread.\n");
+			closesocket(*t_socket);
+			return 1;
+		}
+		else if (RecvRes == TRNS_DISCONNECTED)
+		{
+			printf("Connection closed while reading, closing thread.\n");
+			closesocket(*t_socket);
+			return 1;
+		}
+		else
+			printf("Got string : %s\n", AcceptedStr);
+
+
+		if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_DISCONNECT"))
+		{
+			break;
+		}
+		else if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_VERSUS"))
+		{
+			/// FIND OPPONNET 
+			/// OPEN FILE LOCK FOR WRITE, WRITE USER NAME REMEMBER IF FILE
+			/// EMPTY, IF IT IS IM FIRST, IF NOT IM SECOND,
+			/// WAIT FOR THE OTHER ONE TO WRITE HIS USERNAME
+			/// READ OPPENNET USERNAME
+
+			strcpy(SendStr, "SERVER_INVITE:");
+			strcat_s(SendStr, MSG_MAX_LENG, "Oppenet name");
+		}
+		else // UNKNOWN
+		{
+			free(AcceptedStr);
+			continue;
+		}
+		SendRes = SendString(SendStr, *t_socket);
+
+		if (SendRes == TRNS_FAILED)
+		{
+			free(AcceptedStr);
+			printf("Service socket error while writing, closing thread.\n");
+			closesocket(*t_socket);
+			return 1;
+		}
+
+		free(AcceptedStr);
+	}
+
+	printf("Conversation ended.\n");
+	closesocket(*t_socket);
 	return 0;
 }
 
@@ -159,7 +354,7 @@ int main(int argc, char* argv[])
 
 	printf("Waiting for a client to connect...\n");
 
-	for (Loop = 0; Loop < MAX_LOOPS; Loop++)
+	for (Loop = 0; Loop < 4; Loop++)
 	{
 		SOCKET AcceptSocket = accept(MainSocket, NULL, NULL);
 		if (AcceptSocket == INVALID_SOCKET)
@@ -168,31 +363,22 @@ int main(int argc, char* argv[])
 			goto server_cleanup_3;
 			//TODO CLEAR SERVE
 		}
+		Ind = FindFirstUnusedThreadSlot(); // clean threads that are finished
 
 		printf("Client Connected.\n");
 
-		Ind = FindFirstUnusedThreadSlot();
-
-		if (Ind == NUM_OF_CLIENTS) //no slot is available
-		{
-			printf("No slots available for client, dropping the connection.\n");
-			closesocket(AcceptSocket); //Closing the socket, dropping the connection.
-		}
-		else
-		{
-			ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
-											  // AcceptSocket, instead close 
-											  // ThreadInputs[Ind] when the
-											  // time comes.
-			ThreadHandles[Ind] = CreateThread(
-				NULL,
-				0,
-				(LPTHREAD_START_ROUTINE)ServiceThread,
-				&(ThreadInputs[Ind]),
-				0,
-				NULL
-			);
-		}
+		ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
+											// AcceptSocket, instead close 
+											// ThreadInputs[Ind] when the
+											// time comes.
+		ThreadHandles[Ind] = CreateThread(
+			NULL,
+			0,
+			(LPTHREAD_START_ROUTINE)ServiceThread,
+			&(ThreadInputs[Ind]),
+			0,
+			NULL
+		);
 	} // for ( Loop = 0; Loop < MAX_LOOPS; Loop++ )
 
 server_cleanup_3:
@@ -205,156 +391,4 @@ server_cleanup_2:
 server_cleanup_1:
 	if (WSACleanup() == SOCKET_ERROR)
 		printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
-}
-
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-
-static int FindFirstUnusedThreadSlot()
-{
-	int Ind;
-
-	for (Ind = 0; Ind < NUM_OF_CLIENTS; Ind++)
-	{
-		if (ThreadHandles[Ind] == NULL)
-			break;
-		else
-		{
-			// poll to check if thread finished running:
-			DWORD Res = WaitForSingleObject(ThreadHandles[Ind], 0);
-
-			if (Res == WAIT_OBJECT_0) // this thread finished running
-			{
-				CloseHandle(ThreadHandles[Ind]);
-				ThreadHandles[Ind] = NULL;
-				break;
-			}
-		}
-	}
-
-	return Ind;
-}
-
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-
-static void CleanupWorkerThreads()
-{
-	int Ind;
-
-	for (Ind = 0; Ind < NUM_OF_CLIENTS; Ind++)
-	{
-		if (ThreadHandles[Ind] != NULL)
-		{
-			// poll to check if thread finished running:
-			DWORD Res = WaitForSingleObject(ThreadHandles[Ind], INFINITE);
-
-			if (Res == WAIT_OBJECT_0)
-			{
-				closesocket(ThreadInputs[Ind]);
-				CloseHandle(ThreadHandles[Ind]);
-				ThreadHandles[Ind] = NULL;
-				break;
-			}
-			else
-			{
-				printf("Waiting for thread failed. Ending program\n");
-				return;
-			}
-		}
-	}
-}
-
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-
-//Service thread is the thread that opens for each successful client connection and "talks" to the client.
-static DWORD ServiceThread(SOCKET* t_socket)
-{
-	char SendStr[MSG_MAX_LENG];
-	char* msg = NULL;
-	BOOL Done = FALSE;
-	TransferResult_t SendRes;
-	TransferResult_t RecvRes;
-
-	strcpy(SendStr, "SERVER_APPROVED");
-	// TODO safe mode
-
-	SendRes = SendString(SendStr, *t_socket);
-
-	if (SendRes == TRNS_FAILED)
-	{
-		printf("Service socket error while writing, closing thread.\n");
-		closesocket(*t_socket);
-		return 1;
-	}
-
-	while (!Done)
-	{
-		char* AcceptedStr = NULL;
-
-		RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-
-		if (RecvRes == TRNS_FAILED)
-		{
-			printf("Service socket error while reading, closing thread.\n");
-			closesocket(*t_socket);
-			return 1;
-		}
-		else if (RecvRes == TRNS_DISCONNECTED)
-		{
-			printf("Connection closed while reading, closing thread.\n");
-			closesocket(*t_socket);
-			return 1;
-		}
-		else
-		{
-			printf("Got string : %s\n", AcceptedStr);
-		}
-
-		//After reading a single line, checking to see what to do with it
-		//If got "hello" send back "what's up?"
-		//If got "how are you?" send back "great"
-		//If got "bye" send back "see ya!" and then end the thread
-		//Otherwise, send "I don't understand"
-
-		if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_DISCONNECT"))
-		{
-			break;
-		}
-		else if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_VERSUS"))
-		{
-			//GET USRENAME FROM THE OTHER THREAD 
-			//if (msg_creator(USERNAME_MAX_LENG + SERVER_INVITE_LENG + 1,&msg, "SERVER_INVITE:", "Oppenet name"))
-			//{
-			//	printf("Connection closed while reading, closing thread.\n");
-			//	closesocket(*t_socket);
-			//	return 1;
-			//}
-			strcpy(SendStr, "SERVER_INVITE:");
-			strcat_s(SendStr, MSG_MAX_LENG, "Oppenet name");
-		}
-		else if (STRINGS_ARE_EQUAL(AcceptedStr, "bye"))
-		{
-			strcpy(SendStr, "see ya!");
-			Done = TRUE;
-		}
-		else
-		{
-			free(AcceptedStr);
-			continue;
-		}
-
-		SendRes = SendString(SendStr, *t_socket);
-
-		if (SendRes == TRNS_FAILED)
-		{
-			printf("Service socket error while writing, closing thread.\n");
-			closesocket(*t_socket);
-			return 1;
-		}
-
-		free(AcceptedStr);
-	}
-
-	printf("Conversation ended.\n");
-	closesocket(*t_socket);
-	return 0;
 }

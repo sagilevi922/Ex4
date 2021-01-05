@@ -54,7 +54,7 @@ int check_recieved(char* recieved_str)
 {
 	if (recieved_str == TRNS_FAILED)
 	{
-		printf("Socket error while trying to write data to socket\n");
+		/*printf("Socket error while trying to write data to socket\n");*/
 		return 1;
 	}
 	else if (recieved_str == TRNS_DISCONNECTED)
@@ -66,7 +66,6 @@ int check_recieved(char* recieved_str)
 }
 
 
-
 //Sending data to the server
 static DWORD SendDataThread(void)
 {
@@ -74,9 +73,12 @@ static DWORD SendDataThread(void)
 	TransferResult_t SendRes;
 	TransferResult_t RecvRes;
 	int choice = 0;
+	char* AcceptedStr = NULL;
+
+
 	while (1)
 	{
-		char* AcceptedStr = NULL;
+		AcceptedStr = NULL;
 		RecvRes = ReceiveString(&AcceptedStr, m_socket);
 
 		if (check_recieved(AcceptedStr))
@@ -84,7 +86,7 @@ static DWORD SendDataThread(void)
 
 		printf("%s\n", AcceptedStr);
 
-		if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_APPROVED"))
+		if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_MAIN_MENU"))
 		{
 			printf(SERVER_MAIN_MENU_MSG);
 			choice = get_input_choice();
@@ -101,7 +103,7 @@ static DWORD SendDataThread(void)
 				free(AcceptedStr);
 				printf("Quitting...\n");
 
-				return;
+				return 0;
 			}
 			else //want to play someone
 			{
@@ -186,7 +188,33 @@ int get_input_choice()
 }
 
 //CLIENT MAIN
+int reconnect_msg(int msg, char* server_address, int server_port, SOCKET* m_socket)
+{ // msg == 1  ----> failed, msg == 2 ---> failed with disconnection, 3----> denied
 
+	int choice = 0;
+	if (msg == 1 || msg ==2)
+		printf("%s%s:%d.\n", FAILED__CONNECT_MSG, server_address, server_port);
+	else
+		printf("%s%s:%d %s\n", SERVER_DENIED_REQ_1, server_address, server_port, SERVER_DENIED_REQ_2);
+	printf("%s", WAITING_OPTIONS);
+	choice = get_input_choice();
+	if (choice == 2)
+	{
+		printf("Exiting...\n");
+		WSACleanup();
+		return 1;
+	}
+	if (msg == 3 || msg == 2)
+	{
+		disconnect_socket(m_socket);
+		if (NULL == *m_socket)
+		{
+			WSACleanup();
+			return 1;
+		}
+	}
+	return 0;
+}
 int main(int argc, char* argv[])
 {
 	int server_port = 0;
@@ -246,29 +274,79 @@ int main(int argc, char* argv[])
 	// Check for general errors.
 	int reconnect = 1;
 	int choice = 0;
+	DWORD timeout = 100000;
+	TransferResult_t RecvRes;
+	TransferResult_t SendRes;
+	char* AcceptedStr = NULL;
+	char msg[USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1];
 
 	while (reconnect)
 	{
 
 		if (connect(m_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR)
 		{
-			printf("%s%s:%d\n", FAILED__CONNECT_MSG, server_address, server_port);
-			printf("%s", WAITING_OPTIONS);
-			choice = get_input_choice();
-			if (choice == 2)
-			{
-				printf("Exiting...\n");
-				WSACleanup();
-				return;
-			}
+			if (reconnect_msg(1, server_address, server_port, &m_socket)) //closesocket
+				return 1;
 		}
 		else // Succsefull connection
-			reconnect = 0;
+		{
+			AcceptedStr = NULL;
+			printf("%s%s:%d\n", SUCCESSFUL_CONNECT_MSG, server_address, server_port);
+
+			////// client step 2 - CLIENT_REQUEST
+			strcpy(msg, "CLIENT_REQUEST:");
+
+			strcat_s(msg, (USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1), username);
+
+			SendRes = SendString(msg, m_socket);
+
+			if (SendRes == TRNS_FAILED)
+			{
+				printf("Socket error while trying to write data to socket\n");
+				return 0x555;
+			}
+
+			if (set_socket_timeout(timeout, m_socket)) // setting timeout for socket
+				return 0x555;
+
+			RecvRes = ReceiveString(&AcceptedStr, m_socket);
+			printf("%s\n", AcceptedStr);
+
+			// if timout sending disconnect messege and try to reconnect
+			if (check_recieved(AcceptedStr))
+			{ 
+				strcpy(msg, "CLIENT_DISCONNECT");
+
+				SendRes = SendString(msg, m_socket);
+
+				if (SendRes == TRNS_FAILED)
+				{
+					printf("Socket error while trying to write data to socket CLIENT_DISCONNECT\n");
+					return 1;
+				}
+
+				if (reconnect_msg(2, server_address, server_port, &m_socket))
+					return 1;
+			}
+
+			if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_DENIED:room is full"))
+			{
+				if (reconnect_msg(3, server_address, server_port, &m_socket))
+					return 1;
+
+			}
+			if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_APPROVED"))
+			{
+				free(AcceptedStr);
+				reconnect = 0;
+			}
+
+			
+		}
 	}
 	//TODO 4 AND 5 SUDDEN DISCONNECTION
 
 	// Succsefull connection message
-	printf("%s%s:%d ", SUCCESSFUL_CONNECT_MSG, server_address, server_port);
 	// Send and receive data.
 	/*
 		In this code, two integers are used to keep track of the number of bytes that are sent and received.
@@ -277,21 +355,6 @@ int main(int argc, char* argv[])
 		the active socket, a char buffer, the number of bytes to send or receive, and any flags to use.
 
 	*/
-	TransferResult_t SendRes;
-
-	////// client step 2 - CLIENT_REQUEST
-	char msg[USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1];
-	strcpy(msg, "CLIENT_REQUEST:");
-
-	strcat_s(msg, (USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1), username);
-
-	SendRes = SendString(msg, m_socket);
-
-	if (SendRes == TRNS_FAILED)
-	{
-		printf("Socket error while trying to write data to socket\n");
-		return 0x555;
-	}
 
 	hThread = CreateThread(
 		NULL,
