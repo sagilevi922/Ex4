@@ -17,7 +17,6 @@ Allows for locking certain sections of code, so only specific threads can read o
 #include "HardCodedData.h"
 
 #include "Lock.h"
-#include "main.h"
 
 // Function Definitions --------------------------------------------------------
 
@@ -51,8 +50,9 @@ lock* InitializeLock()
         free(new_lock);
         return NULL;
     }
-
+    //want to change init value to 2
     new_lock->readers = 0;
+
     new_lock->mutex = mutex;
     new_lock->roomEmpty = roomEmpty;
     new_lock->turnstile = turnstile;
@@ -127,7 +127,7 @@ int release_read(lock* lock)
     }
 
     lock->readers -= 1;
-    if (lock->readers == 0)
+    if (lock->readers ==0)
     {
         release_res = ReleaseSemaphore(roomEmpty, 1, NULL);
         if (release_res == 0)

@@ -15,6 +15,7 @@
 #include "SocketExampleShared.h"
 #include "SocketSendRecvTools.h"
 #include "msg.h"
+#include "HardCodedData.h"
 
 
 SOCKET m_socket;
@@ -74,11 +75,13 @@ static DWORD SendDataThread(void)
 	TransferResult_t RecvRes;
 	int choice = 0;
 	char* AcceptedStr = NULL;
-
+	char params[MAX_PARAM_LENG];
+	char msg_type[MSG_TYPE_MAX_LENG];
 
 	while (1)
 	{
 		AcceptedStr = NULL;
+		printf("waiting for server\n");
 		RecvRes = ReceiveString(&AcceptedStr, m_socket);
 
 		if (check_recieved(AcceptedStr))
@@ -118,7 +121,17 @@ static DWORD SendDataThread(void)
 		}
 		else // unreconize msg
 		{
-			printf("%s what?????\n", AcceptedStr);
+			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
+			printf("params: %s\n", params);
+			printf("msg_type is: %s\n", msg_type);
+
+			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_INVITE"))
+			{
+				printf("");
+			}
+			else
+				printf("%s what?????\n", AcceptedStr);
+
 			// fix recoginze msg likes SERVER_INVITE:Oppenet name
 		}
 		free(AcceptedStr);

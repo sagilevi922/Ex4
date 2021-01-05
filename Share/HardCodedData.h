@@ -14,3 +14,11 @@
 //
 //#endif // HARD_CODED_DATA_H
 //	
+
+#define ERROR_CODE ((int)(-1))
+#define THREADS_LIMIT 64
+#define MAX_WAITING_TIME 100000
+#define BRUTAL_TERMINATION_CODE 0x55
+#define MAX_PARAM_LENG 50 // FIX TO MAX SIZE
+#define MSG_TYPE_MAX_LENG 30
+#define THREADS_FILE_NAME "INIT_GAME.txt"

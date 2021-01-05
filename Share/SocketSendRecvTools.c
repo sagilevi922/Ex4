@@ -181,3 +181,25 @@ void disconnect_socket(SOCKET* sd)
 		return NULL;
 	}
 }
+
+void get_msg_type_and_params(char* input_msg, char* msg_type, char* params)
+{
+	int i = 0;
+	while (*input_msg != ':')
+	{
+		msg_type[i] = *input_msg;
+		i++;
+		input_msg++;
+
+	}
+	msg_type[i] = '\0';
+	i = 0;
+	input_msg++;
+	while (*input_msg != '\0')
+	{
+		params[i] = *input_msg;
+		i++;
+		input_msg++;
+	}
+	params[i] = '\0';
+}

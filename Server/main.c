@@ -14,9 +14,11 @@
 
 #include "SocketExampleShared.h"
 #include "SocketSendRecvTools.h"
-//#include "HardCodedData.h"
+#include "HardCodedData.h"
 #include "msg.h"
-
+#include "Lock.h"
+#include "file_handler.h"
+#include "main.h"
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 #define NUM_OF_CLIENTS 2
@@ -32,13 +34,30 @@
 HANDLE ThreadHandles[MAX_THREADS];
 SOCKET ThreadInputs[MAX_THREADS];
 int active_users = 0;
+
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 static int FindFirstUnusedThreadSlot();
 static void CleanupWorkerThreads();
-static DWORD ServiceThread(SOCKET* t_socket);
+static DWORD ServiceThread(LPVOID lpParam);
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
+thread_args* create_thread_arg(SOCKET* socket, lock* lock, HANDLE semaphore_gun)
+{
+	thread_args* temp_arg = (thread_args*)malloc(sizeof(thread_args));
+	if (NULL == temp_arg)
+	{
+		printf("memory allocation failed");
+		return NULL;
+	}
+
+	temp_arg->socket = socket;
+	temp_arg->lock = lock;
+	temp_arg->semaphore_gun = semaphore_gun;
+
+	return temp_arg;
+}
+
 int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 {
 	if (num_of_args != 2) //Not enough arguments.
@@ -64,9 +83,10 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
-static int FindFirstUnusedThreadSlot()
+static int FindFirstUnusedThreadSlot(HANDLE semaphore_gun)
 {
 	int Ind;
+	bool release_res;
 
 	for (Ind = 0; Ind < NUM_OF_CLIENTS; Ind++)
 	{
@@ -82,6 +102,7 @@ static int FindFirstUnusedThreadSlot()
 			{
 				CloseHandle(ThreadHandles[Ind]);
 				ThreadHandles[Ind] = NULL;
+
 				break;
 			}
 		}
@@ -120,11 +141,10 @@ static void CleanupWorkerThreads()
 }
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
-static DWORD ServiceThread(SOCKET* t_socket)
+static DWORD ServiceThread(LPVOID lpParam)
 {
-	
+	bool release_res;
 	printf("thread start.\n");
 	char SendStr[MSG_MAX_LENG];
 	char* msg = NULL;
@@ -133,10 +153,32 @@ static DWORD ServiceThread(SOCKET* t_socket)
 	TransferResult_t RecvRes;
 	int Ind = 0;
 	//Sleep(1000);
-
+	HANDLE oFile, hFile;
+	char* newline = NULL;
+	DWORD dwFileSize = 0;
+	int username_length = 0;
+	char username[USERNAME_MAX_LENG];
+	char oppenet_username[USERNAME_MAX_LENG];
 	char* AcceptedStr = NULL;
-
+	char msg_type[MSG_TYPE_MAX_LENG];
+	int first = 0; // if im the first reader 
+	SOCKET *t_socket;
+	lock* lock;
+	thread_args* temp_arg = (thread_args*)lpParam;
+	int start_pos = 0;
+	int end_pos = 0;
+	t_socket = temp_arg->socket;
+	lock = temp_arg->lock;
 	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
+	get_msg_type_and_params(AcceptedStr, &msg_type, &username);
+	printf("username is : %s\n", username);
+	printf("msg_type is : %s\n", msg_type);
+	username_length = strlen(username);
+
+	HANDLE semaphore_gun;
+	bool wait_res;
+	semaphore_gun = temp_arg->semaphore_gun;
+
 
 	if (RecvRes == TRNS_FAILED)
 	{
@@ -184,7 +226,6 @@ static DWORD ServiceThread(SOCKET* t_socket)
 	}
 
 	strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
-	// TODO safe mode
 
 	SendRes = SendString(SendStr, *t_socket);
 
@@ -228,11 +269,108 @@ static DWORD ServiceThread(SOCKET* t_socket)
 			/// WAIT FOR THE OTHER ONE TO WRITE HIS USERNAME
 			/// READ OPPENNET USERNAME
 
+			if (!lock_write(lock)) { // Locking for write
+				printf("Error while locking for write...");
+				return 1;
+			}
+
+			oFile = create_file_for_write(THREADS_FILE_NAME, 0);
+			if (NULL == oFile) {
+				printf("Error while opening file to write\n");
+				release_write(lock);
+				free(newline);
+				return 1;
+			}
+			dwFileSize = GetFileSize(oFile, NULL);
+			printf("dwFileSize is: %d", dwFileSize);
+			if (dwFileSize) // Im first
+				first = 0;
+			else
+				first = 1;
+			
+			write_to_file(username, username_length, oFile, dwFileSize);
+			if (close_handles_proper(oFile) != 1)
+				return 1;
+			release_write(lock); // Releasing Write lock
+			if (first)
+			{
+				printf("IM WAITING\n");
+				wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
+				if (wait_res != WAIT_OBJECT_0)
+					return 1;
+				printf("got free\n");
+			}
+			else
+			{
+				printf("IM freeing\n");
+				release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
+				if (release_res == FALSE)
+					return 1;
+			}
+
+
+			if (!lock_read(lock)) { // Locking Read lock
+				printf("Error while Locking for read...");
+				continue;
+			}
+
+			hFile = get_input_file_handle(THREADS_FILE_NAME);
+			if (NULL == hFile) {
+				printf("Error while opening Tasks File. Exit program\n");
+				return 1;
+			}
+			dwFileSize = GetFileSize(hFile, NULL);
+			printf("dwFileSize%d\n", dwFileSize);
+
+			if (first)
+			{
+				printf("first\n");
+				start_pos = username_length;
+				end_pos = dwFileSize;
+				end_pos = end_pos - start_pos;
+				printf("start_pos%d\n", start_pos);
+				printf("bytes to read%d\n", end_pos);
+
+			}
+			else
+			{
+				printf("second\n");
+
+				start_pos = 0;
+				end_pos = dwFileSize - username_length;
+				end_pos = end_pos-start_pos;
+				printf("start_pos%d\n", start_pos);
+				printf("bytes to read%d\n", end_pos);
+
+			}
+
+			//TODO FIX READFILE
+			txt_file_to_str(hFile, start_pos, end_pos, &oppenet_username);
+
+
+			if (close_handles_proper(hFile) != 1) {
+				release_read(lock);
+				return 1;
+			}
+			if (!release_read(lock)) { // Releasing Read lock
+				printf("Error while release lock for read...");
+				if (close_handles_proper(hFile) != 1)
+					return 1;
+				continue;
+			}
+
 			strcpy(SendStr, "SERVER_INVITE:");
-			strcat_s(SendStr, MSG_MAX_LENG, "Oppenet name");
+			strcat_s(SendStr, MSG_MAX_LENG, username);
 		}
-		else // UNKNOWN
+
+		//	strcpy(SendStr, "SERVER_INVITE:");
+		//	strcat_s(SendStr, MSG_MAX_LENG, "Oppenet name");
+		//}
+		else // fint the unkown 
 		{
+			//get_msg_type_and_params(AcceptedStr, &msg_type, &username);
+			//printf("username is : %s", username);
+			//printf("msg_type is : %s", msg_type);
 			free(AcceptedStr);
 			continue;
 		}
@@ -266,7 +404,7 @@ int main(int argc, char* argv[])
 	SOCKADDR_IN service;
 	int bindRes;
 	int ListenRes;
-
+	thread_args* thread_arg=NULL;
 	if (init_input_vars(argv, argc, &server_port))
 		return 1;
 
@@ -293,17 +431,6 @@ int main(int argc, char* argv[])
 		//TODO CLEAR SERVE
 	}
 
-	// Bind the socket.
-	/*
-		For a server to accept client connections, it must be bound to a network address within the system.
-		The following code demonstrates how to bind a socket that has already been created to an IP address
-		and port.
-		Client applications use the IP address and port to connect to the host network.
-		The sockaddr structure holds information regarding the address family, IP address, and port number.
-		sockaddr_in is a subset of sockaddr and is used for IP version 4 applications.
-   */
-   // Create a sockaddr_in object and set its values.
-   // Declare variables
 
 	Address = inet_addr(SERVER_ADDRESS_STR);
 	if (Address == INADDR_NONE)
@@ -353,6 +480,19 @@ int main(int argc, char* argv[])
 		ThreadHandles[Ind] = NULL;
 
 	printf("Waiting for a client to connect...\n");
+	lock* lock = InitializeLock();
+	if (NULL == lock)
+	{
+		printf("Unable to init lock.\n");;
+		return 1;
+	}
+
+	HANDLE semaphore_gun = NULL;
+	semaphore_gun = CreateSemaphore(NULL, 0, 1, NULL);  // creats a semphore for paralllel threads func
+	if (NULL == semaphore_gun)
+	{
+		return 1;
+	}
 
 	for (Loop = 0; Loop < 4; Loop++)
 	{
@@ -363,7 +503,14 @@ int main(int argc, char* argv[])
 			goto server_cleanup_3;
 			//TODO CLEAR SERVE
 		}
-		Ind = FindFirstUnusedThreadSlot(); // clean threads that are finished
+		thread_arg= create_thread_arg(&AcceptSocket, lock, semaphore_gun);
+		if (NULL == thread_arg)
+		{
+			printf("Unable to init queue.\n");
+			DestroyLock(lock);
+			return 1;
+		}
+		Ind = FindFirstUnusedThreadSlot(semaphore_gun); // clean threads that are finished
 
 		printf("Client Connected.\n");
 
@@ -375,7 +522,7 @@ int main(int argc, char* argv[])
 			NULL,
 			0,
 			(LPTHREAD_START_ROUTINE)ServiceThread,
-			&(ThreadInputs[Ind]),
+			(thread_arg),
 			0,
 			NULL
 		);

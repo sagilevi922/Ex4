@@ -12,9 +12,27 @@ for read or write, and also can read straign from file
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include "HardCodedData.h"
 
 // Function Definitions --------------------------------------------------------
+int close_handles_proper(HANDLE file_handle)
+{
+	//arguments check - exrported function
+	if (file_handle == INVALID_HANDLE_VALUE)
+	{
+		printf("Invalid HANDLE value, can't close this HANDLE.\n");
+	}
+	int ret_val = 0;
+	if (file_handle != 0)
+		ret_val = CloseHandle(file_handle);
+	if (FALSE == ret_val)
+	{
+		printf("Error when closing\n");
+		return ERROR_CODE;
+	}
+	return 1;
 
+}
 HANDLE get_input_file_handle(char* input_file_name)
 {
 	HANDLE hFile;
@@ -39,7 +57,7 @@ HANDLE get_input_file_handle(char* input_file_name)
 	return hFile;
 }
 
-char* txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char* input_txt)
+char* txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char** input_txt)
 {
 	DWORD file_ptr;
 	DWORD dwBytesRead = 0;
@@ -72,39 +90,36 @@ char* txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char* input_t
 			return 1;
 	}
 
-	if (FALSE == ReadFile(hFile, input_txt, input_size, &dwBytesRead, NULL))
+	if (FALSE == ReadFile(hFile, *input_txt, input_size, &dwBytesRead, NULL))
 	{
 		printf("Terminal failure: Unable to read from file.\n GetLastError=%08x\n", GetLastError());
 		close_handles_proper(hFile);
-		free(input_txt);
+		//free(input_txt); // not dynamic
 		return NULL;
 	}
 
 	if (dwBytesRead > 0 && (int)dwBytesRead <= input_size)
 	{
 		if (input_size > 1)
-			input_txt[dwBytesRead] = '\0'; // NULL character
+			*input_txt[dwBytesRead] = '\0'; // NULL character
 	}
 	else if (dwBytesRead == 0)
 	{
 		printf("No data read from file\n");
 	}
-	if (input_size > 1)
-		return input_txt;
-	return *input_txt;
 }
 
 HANDLE create_file_for_write(char* output_file_name, int line_length)
 {
 	DWORD end_file_ptr;
 	HANDLE hFile;
-	extern char action_mode;
+	//extern char action_mode;
 	DWORD dwFileSize;
 	hFile = CreateFileA(output_file_name,               // file to open
 		GENERIC_WRITE,          // open for reading
 		FILE_SHARE_WRITE,       // share for write
 		NULL,                  // default security
-		OPEN_EXISTING,         // existing file only
+		OPEN_ALWAYS,         // existing file only
 		FILE_ATTRIBUTE_NORMAL, // normal file
 		NULL);                 // no attr. template
 
@@ -120,24 +135,24 @@ HANDLE create_file_for_write(char* output_file_name, int line_length)
 		return NULL;
 	}
 
-	end_file_ptr = SetFilePointer(
-		hFile,
-		dwFileSize + line_length-2, //number of chars
-		NULL, //no need of 32 high bits
-		FILE_BEGIN //starting point- begin of file
-	);
+	//end_file_ptr = SetFilePointer(
+	//	hFile,
+	//	dwFileSize + line_length-2, //number of chars
+	//	NULL, //no need of 32 high bits
+	//	FILE_BEGIN //starting point- begin of file
+	//);
 
-	if (end_file_ptr == INVALID_SET_FILE_POINTER) // Test for failure
-	{
-		printf("Can't set file pointer of outputfile. exit\n");
-		return NULL;
-	}
+	//if (end_file_ptr == INVALID_SET_FILE_POINTER) // Test for failure
+	//{
+	//	printf("Can't set file pointer of outputfile. exit\n");
+	//	return NULL;
+	//}
 
-	int set_end_of_file = SetEndOfFile(hFile);
-	if (!set_end_of_file) {
-		printf("Can't set file pointer of outputfile. exit\n");
-		return NULL;
-	}
+	//int set_end_of_file = SetEndOfFile(hFile);
+	//if (!set_end_of_file) {
+	//	printf("Can't set file pointer of outputfile. exit\n");
+	//	return NULL;
+	//}
 
 	return hFile;
 }
@@ -147,7 +162,7 @@ void write_to_file(char* new_line, int new_line_size, HANDLE oFile, DWORD dwFile
 
 	DWORD  dwBytesWritten = 0;
 	DWORD  file_ptr;
-	printf("trying to write: %s", new_line);
+	printf("trying to write: %s\n", new_line);
 
 	file_ptr = SetFilePointer(
 		oFile,
@@ -156,8 +171,7 @@ void write_to_file(char* new_line, int new_line_size, HANDLE oFile, DWORD dwFile
 		FILE_BEGIN //starting point- begin of file
 	);
 
-
-	if (FALSE == WriteFile(oFile, new_line, new_line_size - 1, &dwBytesWritten, NULL))
+	if (FALSE == WriteFile(oFile, new_line, new_line_size, &dwBytesWritten, NULL))
 	{
 		printf("Terminal failure: Unable to write to file.\n GetLastError=%08x\n", GetLastError());
 		close_handles_proper(oFile);

@@ -33,7 +33,13 @@
     <ClInclude Include="..\Share\SocketSendRecvTools.h">
       <Filter>Shared Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Lock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="file_handler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -42,6 +48,9 @@
       <Filter>Shared Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Lock.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="file_handler.c">

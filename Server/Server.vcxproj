@@ -146,10 +146,13 @@
     <ClInclude Include="..\Share\SocketExampleShared.h" />
     <ClInclude Include="..\Share\SocketSendRecvTools.h" />
     <ClInclude Include="file_handler.h" />
+    <ClInclude Include="Lock.h" />
+    <ClInclude Include="main.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Share\SocketSendRecvTools.c" />
     <ClCompile Include="file_handler.c" />
+    <ClCompile Include="Lock.c" />
     <ClCompile Include="main.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
