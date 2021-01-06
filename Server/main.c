@@ -205,6 +205,28 @@ int get_oppennet_user_name(int first, int username_length, char* oppenet_usernam
 
 	return 0;
 }
+void calc_move_result(char* real_num, char* guess_num, int results[])
+{//results[0]=number of bulls in the current move. result[1]=number of cows in the current move.
+	int i = 0, j = 0;
+
+	for (i = 0; i < 4; i++)//guess_num_iter
+	{
+		for (j = 0; j < 4; j++)
+		{
+			if (guess_num[i] == real_num[j])//real_num_iter
+			{
+				if (i == j)//BULL
+				{
+					results[0]++;
+					continue;
+				}
+				results[1]++;//COW
+
+			}
+		}
+
+	}
+}
 
 int write_input_to_file(int* first,int* no_oppennet, int username_length, char* username, lock* lock, char* SendStr, HANDLE semaphore_gun)
 {
@@ -439,8 +461,8 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 			if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_SETUP"))
 			{
-				//strcpy_s(player_number, 5, params);
-				//printf("player_number: %s\n", player_number);
+				strcpy_s(player_number, 5, params);
+				printf("player_number: %s\n", player_number);
 
 				no_oppennet = 1;
 
@@ -486,6 +508,9 @@ static DWORD ServiceThread(LPVOID lpParam)
 				printf("my guess is: %s ,oppennet_number: %s\n", player_curr_guess, oppennet_number);
 				printf("cows is: %d ,bulls: %d\n", round_results[1], round_results[0]);
 
+				//strcpy_s(SendStr, "SERVER_GAME_RESULTS:");
+				//strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+
 				remove(THREADS_FILE_NAME);
 			}
 			else
@@ -517,28 +542,6 @@ static DWORD ServiceThread(LPVOID lpParam)
 //Gets the real number of the opponent - real_num, and the player's guess - guess_num,
 //calculate the number of bulls and cows of the player and update the results in  the last argument: results.
 
-void calc_move_result(char* real_num, char* guess_num, int results[])
-{//results[0]=number of bulls in the current move. result[1]=number of cows in the current move.
-	int i = 0, j = 0;
-
-	for (i = 0; i < 4; i++)//guess_num_iter
-	{
-		for (j = 0; j < 4; j++)
-		{
-			if (guess_num[i] == real_num[j])//real_num_iter
-			{
-				if (i == j)//BULL
-				{
-					results[0]++;
-					continue;
-				}
-				results[1]++;//COW
-
-			}
-		}
-
-	}
-}
 // SERVER MAIN
 int main(int argc, char* argv[])
 {
