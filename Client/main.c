@@ -127,7 +127,7 @@ static DWORD SendDataThread(void)
 
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_INVITE"))
 			{
-				printf("");
+				Sleep(10000);
 			}
 			else
 				printf("%s what?????\n", AcceptedStr);

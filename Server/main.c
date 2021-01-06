@@ -83,7 +83,7 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
-static int FindFirstUnusedThreadSlot(HANDLE semaphore_gun)
+static int FindFirstUnusedThreadSlot(HANDLE semaphore_gun, thread_args** thread_args)
 {
 	int Ind;
 	bool release_res;
@@ -102,7 +102,8 @@ static int FindFirstUnusedThreadSlot(HANDLE semaphore_gun)
 			{
 				CloseHandle(ThreadHandles[Ind]);
 				ThreadHandles[Ind] = NULL;
-
+				free(*(thread_args+ Ind));
+				thread_args[Ind] = NULL;
 				break;
 			}
 		}
@@ -168,17 +169,18 @@ static DWORD ServiceThread(LPVOID lpParam)
 	thread_args* temp_arg = (thread_args*)lpParam;
 	int start_pos = 0;
 	int end_pos = 0;
-	t_socket = temp_arg->socket;
+	HANDLE semaphore_gun;
+	int bytes_to_read = 0;
+	bool wait_res;
+
+	semaphore_gun = temp_arg->semaphore_gun;
 	lock = temp_arg->lock;
+	t_socket = temp_arg->socket;
+
 	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
 	get_msg_type_and_params(AcceptedStr, &msg_type, &username);
-	printf("username is : %s\n", username);
-	printf("msg_type is : %s\n", msg_type);
+
 	username_length = strlen(username);
-	int bytes_to_read = 0;
-	HANDLE semaphore_gun;
-	bool wait_res;
-	semaphore_gun = temp_arg->semaphore_gun;
 
 
 	if (RecvRes == TRNS_FAILED)
@@ -216,9 +218,12 @@ static DWORD ServiceThread(LPVOID lpParam)
 		return 1;
 	}
 	active_users++;
-
 	strcpy_s(SendStr,16, "SERVER_APPROVED");
 	SendRes = SendString(SendStr, *t_socket);
+	printf("my username is: %s\n", username);
+	printf("my socket is  : %d\n", *t_socket);
+	printf("my msg is  : %s\n", SendStr);
+
 	if (SendRes == TRNS_FAILED)
 	{
 		printf("Service socket error while writing, closing thread.\n");
@@ -227,7 +232,9 @@ static DWORD ServiceThread(LPVOID lpParam)
 	}
 
 	strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
-
+	printf("my username is: %s\n", username);
+	printf("my socket is  : %d\n", *t_socket);
+	printf("my msg is  : %s\n", SendStr);
 	SendRes = SendString(SendStr, *t_socket);
 
 	if (SendRes == TRNS_FAILED)
@@ -357,7 +364,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 			oppenet_username[i] = '\0';
 
 			//oppenet_username[0] = txt_file_to_str(hFile, start_pos, 1);
-			printf("oppent username: %s\n", oppenet_username);
+			printf("my username is: %s ,oppent username: %s\n",username, oppenet_username);
 
 			if (close_handles_proper(hFile) != 1) {
 				release_read(lock);
@@ -371,7 +378,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 			}
 
 			strcpy(SendStr, "SERVER_INVITE:");
-			strcat_s(SendStr, MSG_MAX_LENG, username);
+			strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
 		}
 
 		//	strcpy(SendStr, "SERVER_INVITE:");
@@ -385,6 +392,10 @@ static DWORD ServiceThread(LPVOID lpParam)
 			free(AcceptedStr);
 			continue;
 		}
+		printf("my username is: %s\n", username);
+		printf("my socket is  : %d\n", *t_socket);
+		printf("my msg is  : %s\n", SendStr);
+
 		SendRes = SendString(SendStr, *t_socket);
 
 		if (SendRes == TRNS_FAILED)
@@ -406,7 +417,8 @@ static DWORD ServiceThread(LPVOID lpParam)
 // SERVER MAIN
 int main(int argc, char* argv[])
 {
-
+	thread_args* thread_args[MAX_THREADS];
+	SOCKET AcceptedSockets[MAX_THREADS];
 	if (remove(THREADS_FILE_NAME) == 0)
 		printf("Deleted successfully\n");
 	else
@@ -421,7 +433,7 @@ int main(int argc, char* argv[])
 	SOCKADDR_IN service;
 	int bindRes;
 	int ListenRes;
-	thread_args* thread_arg=NULL;
+
 	if (init_input_vars(argv, argc, &server_port))
 		return 1;
 
@@ -513,25 +525,28 @@ int main(int argc, char* argv[])
 
 	for (Loop = 0; Loop < 4; Loop++)
 	{
-		SOCKET AcceptSocket = accept(MainSocket, NULL, NULL);
-		if (AcceptSocket == INVALID_SOCKET)
+		Ind = FindFirstUnusedThreadSlot(semaphore_gun, thread_args); // clean threads that are finished
+
+		AcceptedSockets[Ind] = accept(MainSocket, NULL, NULL);
+		if (AcceptedSockets[Ind] == INVALID_SOCKET)
 		{
 			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
 			goto server_cleanup_3;
 			//TODO CLEAR SERVE
 		}
-		thread_arg= create_thread_arg(&AcceptSocket, lock, semaphore_gun);
-		if (NULL == thread_arg)
+
+		printf("index: %d", Ind);
+		thread_args[Ind] = create_thread_arg(&AcceptedSockets[Ind], lock, semaphore_gun);
+		
+		if (NULL == thread_args[Ind])
 		{
-			printf("Unable to init queue.\n");
 			DestroyLock(lock);
 			return 1;
 		}
-		Ind = FindFirstUnusedThreadSlot(semaphore_gun); // clean threads that are finished
 
 		printf("Client Connected.\n");
 
-		ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
+		ThreadInputs[Ind] = AcceptedSockets[Ind]; // shallow copy: don't close 
 											// AcceptSocket, instead close 
 											// ThreadInputs[Ind] when the
 											// time comes.
@@ -539,7 +554,7 @@ int main(int argc, char* argv[])
 			NULL,
 			0,
 			(LPTHREAD_START_ROUTINE)ServiceThread,
-			(thread_arg),
+			(thread_args[Ind]),
 			0,
 			NULL
 		);
