@@ -81,7 +81,7 @@ static DWORD SendDataThread(void)
 	while (1)
 	{
 		AcceptedStr = NULL;
-		printf("waiting for server\n");
+		printf("waiting for input from server\n");
 		RecvRes = ReceiveString(&AcceptedStr, m_socket);
 
 		if (check_recieved(AcceptedStr))
@@ -95,29 +95,12 @@ static DWORD SendDataThread(void)
 			choice = get_input_choice();
 			if (choice == 2) //quitting the game
 			{
-
-				SendRes = SendString("CLIENT_DISCONNECT", m_socket);
-
-				if (SendRes == TRNS_FAILED)
-				{
-					printf("Socket error while trying to write data to socket\n");
-					return 0x555;
-				}
-				free(AcceptedStr);
+				strcpy_s(SendStr, 18, "CLIENT_DISCONNECT");
 				printf("Quitting...\n");
-
 				return 0;
 			}
 			else //want to play someone
-			{
-				SendRes = SendString("CLIENT_VERSUS", m_socket);
-
-				if (SendRes == TRNS_FAILED)
-				{
-					printf("Socket error while trying to write data to socket\n");
-					return 0x555;
-				}
-			}
+				strcpy_s(SendStr, 14, "CLIENT_VERSUS");
 		}
 		else // unreconize msg
 		{
@@ -127,12 +110,19 @@ static DWORD SendDataThread(void)
 
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_INVITE"))
 			{
-				Sleep(10000);
+				printf(SERVER_INVITE_MSG);
+				free(AcceptedStr);
+				continue;
 			}
 			else
 				printf("%s what?????\n", AcceptedStr);
+		}
 
-			// fix recoginze msg likes SERVER_INVITE:Oppenet name
+		SendRes = SendString(SendStr, m_socket);
+		if (SendRes == TRNS_FAILED)
+		{
+			printf("Socket error while trying to write data to socket\n");
+			return 0x555;
 		}
 		free(AcceptedStr);
 
@@ -287,7 +277,6 @@ int main(int argc, char* argv[])
 	// Check for general errors.
 	int reconnect = 1;
 	int choice = 0;
-	DWORD timeout = 100000;
 	TransferResult_t RecvRes;
 	TransferResult_t SendRes;
 	char* AcceptedStr = NULL;
@@ -319,7 +308,7 @@ int main(int argc, char* argv[])
 				return 0x555;
 			}
 
-			if (set_socket_timeout(timeout, m_socket)) // setting timeout for socket
+			if (set_socket_timeout(CLIENT_TIMEOUT, m_socket)) // setting timeout for socket
 				return 0x555;
 
 			RecvRes = ReceiveString(&AcceptedStr, m_socket);

@@ -70,7 +70,7 @@ void txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char* input_tx
 
 	if (start_pos < 0 || input_size < 0)
 	{
-		printf("invalid starting position for current thread");
+		printf("invalid starting position for current thread\n");
 
 		close_handles_proper(hFile);
 		return NULL;

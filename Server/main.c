@@ -140,6 +140,72 @@ static void CleanupWorkerThreads()
 		}
 	}
 }
+int get_oppennet_user_name(int first, int username_length, char* oppenet_username, lock* lock)
+{
+	int start_pos = 0;
+	int end_pos = 0;
+	int bytes_to_read = 0;
+	int i = 0;
+	HANDLE hFile = NULL;
+	DWORD dwFileSize = 0;
+	//if (!lock_read(lock)) { // Locking Read lock
+	//	printf("Error while Locking for read...\n");
+	//	return 1;
+	//}
+
+	hFile = get_input_file_handle(THREADS_FILE_NAME);
+	if (NULL == hFile) {
+		printf("Error while opening Tasks File. Exit program\n");
+		return 1;
+	}
+	dwFileSize = GetFileSize(hFile, NULL);
+	printf("dwFileSize%d\n", dwFileSize);
+
+	if (first)
+	{
+		printf("first\n");
+		start_pos = username_length;
+		end_pos = dwFileSize;
+		bytes_to_read = end_pos - start_pos;
+		printf("start_pos%d\n", start_pos);
+		printf("bytes to read%d\n", bytes_to_read);
+
+	}
+	else
+	{
+		printf("second\n");
+		start_pos = 0;
+		end_pos = dwFileSize - username_length;
+		bytes_to_read = end_pos - start_pos;
+		printf("start_pos%d\n", start_pos);
+		printf("bytes to read%d\n", bytes_to_read);
+	}
+
+	for (i = 0; i < bytes_to_read; i++)
+	{
+		oppenet_username[i] = txt_file_to_str(hFile, start_pos + i, 1, &oppenet_username[i]); // gets pointer to str containing the input text
+		
+		if (oppenet_username[i] == NULL)
+			return 1;
+		// TODO better exit
+	}
+	oppenet_username[i] = '\0';
+
+	//oppenet_username[0] = txt_file_to_str(hFile, start_pos, 1);
+
+	if (close_handles_proper(hFile) != 1) {
+		release_read(lock);
+		return 1;
+	}
+	//if (!release_read(lock)) { // Releasing Read lock
+	//	printf("Error while release lock for read...");
+	//	if (close_handles_proper(hFile) != 1)
+	//		return 1;
+	//	return 1;
+	//}
+
+	return 0;
+}
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
@@ -161,6 +227,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 	int username_length = 0;
 	char username[USERNAME_MAX_LENG];
 	char oppenet_username[USERNAME_MAX_LENG];
+	//const char* oppenet_username;
 	char* AcceptedStr = NULL;
 	char msg_type[MSG_TYPE_MAX_LENG];
 	int first = 0; // if im the first reader 
@@ -172,7 +239,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 	HANDLE semaphore_gun;
 	int bytes_to_read = 0;
 	bool wait_res;
-
+	int no_oppennet = 1;
 	semaphore_gun = temp_arg->semaphore_gun;
 	lock = temp_arg->lock;
 	t_socket = temp_arg->socket;
@@ -278,7 +345,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 			/// READ OPPENNET USERNAME
 
 			if (!lock_write(lock)) { // Locking for write
-				printf("Error while locking for write...");
+				printf("Error while locking for write...\n");
 				return 1;
 			}
 
@@ -290,7 +357,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 				return 1;
 			}
 			dwFileSize = GetFileSize(oFile, NULL);
-			printf("dwFileSize is: %d", dwFileSize);
+			printf("dwFileSize is: %d\n", dwFileSize);
 			if (dwFileSize) // Im first
 				first = 0;
 			else
@@ -305,8 +372,15 @@ static DWORD ServiceThread(LPVOID lpParam)
 				printf("IM WAITING\n");
 				wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
 				if (wait_res != WAIT_OBJECT_0)
-					return 1;
-				printf("got free\n");
+				{
+					printf("semaphore_gun WaitForSingleObject timed out\n");
+					strcpy(SendStr, "SERVER_NO_OPPENNTS");
+				}
+				else
+				{
+					no_oppennet = 0;
+					printf("got free\n");
+				}
 			}
 			else
 			{
@@ -316,69 +390,13 @@ static DWORD ServiceThread(LPVOID lpParam)
 					return 1;
 			}
 
-
-			if (!lock_read(lock)) { // Locking Read lock
-				printf("Error while Locking for read...");
-				continue;
-			}
-
-			hFile = get_input_file_handle(THREADS_FILE_NAME);
-			if (NULL == hFile) {
-				printf("Error while opening Tasks File. Exit program\n");
-				return 1;
-			}
-			dwFileSize = GetFileSize(hFile, NULL);
-			printf("dwFileSize%d\n", dwFileSize);
-
-			if (first)
+			if (no_oppennet)
 			{
-				printf("first\n");
-				start_pos = username_length;
-				end_pos = dwFileSize;
-				bytes_to_read = end_pos - start_pos;
-				printf("start_pos%d\n", start_pos);
-				printf("bytes to read%d\n", bytes_to_read);
-
+				get_oppennet_user_name(first, username_length, oppenet_username, lock);
+				printf("my username is: %s ,oppent username: %s\n", username, oppenet_username);
+				strcpy(SendStr, "SERVER_INVITE:");
+				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
 			}
-			else
-			{
-				printf("second\n");
-
-				start_pos = 0;
-				end_pos = dwFileSize - username_length;
-				bytes_to_read = end_pos-start_pos;
-				printf("start_pos%d\n", start_pos);
-				printf("bytes to read%d\n", bytes_to_read);
-			}
-
-			//TODO FIX READFILE
-			//char* txt_Test = (char*)malloc(10 * sizeof(char));
-			//char c = '0';
-			for (i = 0; i < bytes_to_read; i++)
-			{
-				oppenet_username[i] = txt_file_to_str(hFile, start_pos+i, 1, &oppenet_username[i]); // gets pointer to str containing the input text
-				if (oppenet_username[i] == NULL)
-					return 1;
-				// TODO better exit
-			}
-			oppenet_username[i] = '\0';
-
-			//oppenet_username[0] = txt_file_to_str(hFile, start_pos, 1);
-			printf("my username is: %s ,oppent username: %s\n",username, oppenet_username);
-
-			if (close_handles_proper(hFile) != 1) {
-				release_read(lock);
-				return 1;
-			}
-			if (!release_read(lock)) { // Releasing Read lock
-				printf("Error while release lock for read...");
-				if (close_handles_proper(hFile) != 1)
-					return 1;
-				continue;
-			}
-
-			strcpy(SendStr, "SERVER_INVITE:");
-			strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
 		}
 
 		//	strcpy(SendStr, "SERVER_INVITE:");
