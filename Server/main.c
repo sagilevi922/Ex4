@@ -144,6 +144,7 @@ static void CleanupWorkerThreads()
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
 static DWORD ServiceThread(LPVOID lpParam)
 {
+	int i = 0; 
 	bool release_res;
 	printf("thread start.\n");
 	char SendStr[MSG_MAX_LENG];
@@ -174,7 +175,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 	printf("username is : %s\n", username);
 	printf("msg_type is : %s\n", msg_type);
 	username_length = strlen(username);
-
+	int bytes_to_read = 0;
 	HANDLE semaphore_gun;
 	bool wait_res;
 	semaphore_gun = temp_arg->semaphore_gun;
@@ -327,9 +328,9 @@ static DWORD ServiceThread(LPVOID lpParam)
 				printf("first\n");
 				start_pos = username_length;
 				end_pos = dwFileSize;
-				end_pos = end_pos - start_pos;
+				bytes_to_read = end_pos - start_pos;
 				printf("start_pos%d\n", start_pos);
-				printf("bytes to read%d\n", end_pos);
+				printf("bytes to read%d\n", bytes_to_read);
 
 			}
 			else
@@ -338,15 +339,25 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 				start_pos = 0;
 				end_pos = dwFileSize - username_length;
-				end_pos = end_pos-start_pos;
+				bytes_to_read = end_pos-start_pos;
 				printf("start_pos%d\n", start_pos);
-				printf("bytes to read%d\n", end_pos);
-
+				printf("bytes to read%d\n", bytes_to_read);
 			}
 
 			//TODO FIX READFILE
-			txt_file_to_str(hFile, start_pos, end_pos, &oppenet_username);
+			//char* txt_Test = (char*)malloc(10 * sizeof(char));
+			//char c = '0';
+			for (i = 0; i < bytes_to_read; i++)
+			{
+				oppenet_username[i] = txt_file_to_str(hFile, start_pos+i, 1, &oppenet_username[i]); // gets pointer to str containing the input text
+				if (oppenet_username[i] == NULL)
+					return 1;
+				// TODO better exit
+			}
+			oppenet_username[i] = '\0';
 
+			//oppenet_username[0] = txt_file_to_str(hFile, start_pos, 1);
+			printf("oppent username: %s\n", oppenet_username);
 
 			if (close_handles_proper(hFile) != 1) {
 				release_read(lock);
@@ -395,6 +406,12 @@ static DWORD ServiceThread(LPVOID lpParam)
 // SERVER MAIN
 int main(int argc, char* argv[])
 {
+
+	if (remove(THREADS_FILE_NAME) == 0)
+		printf("Deleted successfully\n");
+	else
+		printf("Unable to delete the file\n");
+
 	int server_port = 0;
 
 	int Ind;

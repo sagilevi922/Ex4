@@ -57,7 +57,7 @@ HANDLE get_input_file_handle(char* input_file_name)
 	return hFile;
 }
 
-char* txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char** input_txt)
+void txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char* input_txt)
 {
 	DWORD file_ptr;
 	DWORD dwBytesRead = 0;
@@ -90,23 +90,26 @@ char* txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char** input_
 			return 1;
 	}
 
-	if (FALSE == ReadFile(hFile, *input_txt, input_size, &dwBytesRead, NULL))
+	if (FALSE == ReadFile(hFile, input_txt, input_size, &dwBytesRead, NULL))
 	{
 		printf("Terminal failure: Unable to read from file.\n GetLastError=%08x\n", GetLastError());
 		close_handles_proper(hFile);
-		//free(input_txt); // not dynamic
+		free(input_txt);
 		return NULL;
 	}
 
 	if (dwBytesRead > 0 && (int)dwBytesRead <= input_size)
 	{
 		if (input_size > 1)
-			*input_txt[dwBytesRead] = '\0'; // NULL character
+			input_txt[dwBytesRead] = '\0'; // NULL character
 	}
 	else if (dwBytesRead == 0)
 	{
 		printf("No data read from file\n");
 	}
+	if (input_size > 1)
+		return input_txt;
+	return *input_txt;
 }
 
 HANDLE create_file_for_write(char* output_file_name, int line_length)
