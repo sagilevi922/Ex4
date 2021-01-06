@@ -265,6 +265,7 @@ int write_input_to_file(int* first,int* no_oppennet, int username_length, char* 
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
 static DWORD ServiceThread(LPVOID lpParam)
 {
+	int round_results[2] = { 0 };
 	int write_res = 0;
 	int i = 0; 
 	bool release_res;
@@ -300,6 +301,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 	t_socket = temp_arg->socket;
 	char params[MAX_PARAM_LENG];
 	char player_number[NUM_INPUT_LENGTH];
+	char oppennet_number[NUM_INPUT_LENGTH];
 	char player_curr_guess[NUM_INPUT_LENGTH];
 	char oppennet_curr_guess[NUM_INPUT_LENGTH];
 	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
@@ -437,9 +439,20 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 			if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_SETUP"))
 			{
-				strcpy_s(player_number, 5, params);
-				printf("player_number: %s\n", player_number);
+				//strcpy_s(player_number, 5, params);
+				//printf("player_number: %s\n", player_number);
 
+				no_oppennet = 1;
+
+				if (write_input_to_file(&first, &no_oppennet, NUM_INPUT_LENGTH - 1, player_number, lock, SendStr, semaphore_gun))
+					return 1;
+
+				if (!no_oppennet)
+				{
+					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_number, lock);
+					printf("my player_number is: %s ,oppennet_number: %s\n", player_number, oppennet_number);
+				}
+				remove(THREADS_FILE_NAME);
 				strcpy_s(SendStr, 27 ,"SERVER_PLAYER_MOVE_REQUEST");
 			}
 			else if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_PLAYER_MOVE"))
@@ -469,6 +482,9 @@ static DWORD ServiceThread(LPVOID lpParam)
 					//strcpy(SendStr, "SERVER_SETUP_REQUEST");
 
 				}
+				calc_move_result(oppennet_number, player_curr_guess, round_results);
+				printf("my guess is: %s ,oppennet_number: %s\n", player_curr_guess, oppennet_number);
+				printf("cows is: %d ,bulls: %d\n", round_results[1], round_results[0]);
 
 				remove(THREADS_FILE_NAME);
 			}
@@ -498,7 +514,31 @@ static DWORD ServiceThread(LPVOID lpParam)
 	closesocket(*t_socket);
 	return 0;
 }
+//Gets the real number of the opponent - real_num, and the player's guess - guess_num,
+//calculate the number of bulls and cows of the player and update the results in  the last argument: results.
 
+void calc_move_result(char* real_num, char* guess_num, int results[])
+{//results[0]=number of bulls in the current move. result[1]=number of cows in the current move.
+	int i = 0, j = 0;
+
+	for (i = 0; i < 4; i++)//guess_num_iter
+	{
+		for (j = 0; j < 4; j++)
+		{
+			if (guess_num[i] == real_num[j])//real_num_iter
+			{
+				if (i == j)//BULL
+				{
+					results[0]++;
+					continue;
+				}
+				results[1]++;//COW
+
+			}
+		}
+
+	}
+}
 // SERVER MAIN
 int main(int argc, char* argv[])
 {
