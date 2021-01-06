@@ -27,7 +27,6 @@
 
 #define MAX_LOOPS 3
 
-#define MSG_MAX_LENG 100
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
@@ -139,7 +138,7 @@ static void CleanupWorkerThreads()
 			}
 		}
 	}
-}
+} 
 int get_oppennet_user_name(int first, int username_length, char* oppenet_username, lock* lock)
 {
 	int start_pos = 0;
@@ -207,10 +206,66 @@ int get_oppennet_user_name(int first, int username_length, char* oppenet_usernam
 	return 0;
 }
 
+int write_input_to_file(int* first,int* no_oppennet, int username_length, char* username, lock* lock, char* SendStr, HANDLE semaphore_gun)
+{
+	HANDLE oFile = NULL;
+	DWORD dwFileSize = 0;
+	bool wait_res;
+	bool release_res;
+
+	if (!lock_write(lock)) { // Locking for write
+		printf("Error while locking for write...\n");
+		return 1;
+	}
+
+	oFile = create_file_for_write(THREADS_FILE_NAME, 0);
+	if (NULL == oFile) {
+		printf("Error while opening file to write\n");
+		release_write(lock);
+		return 1;
+	}
+	dwFileSize = GetFileSize(oFile, NULL);
+	printf("dwFileSize is: %d\n", dwFileSize);
+	if (dwFileSize) // Im first
+		*first = 0;
+	else
+		*first = 1;
+
+	write_to_file(username, username_length, oFile, dwFileSize);
+	if (close_handles_proper(oFile) != 1)
+		return 1;
+	release_write(lock); // Releasing Write lock
+	if (*first)
+	{
+		printf("IM WAITING\n");
+		wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
+		if (wait_res != WAIT_OBJECT_0)
+		{
+			printf("semaphore_gun WaitForSingleObject timed out\n");
+			strcpy(SendStr, "SERVER_NO_OPPENNTS");
+		}
+		else
+		{
+			*no_oppennet = 0;
+			printf("got free\n");
+		}
+	}
+	else
+	{
+		printf("IM freeing\n");
+		release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
+		if (release_res == FALSE)
+			return 1;
+		*no_oppennet = 0;
+
+	}
+	return 0;
+}
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
 static DWORD ServiceThread(LPVOID lpParam)
 {
+	int write_res = 0;
 	int i = 0; 
 	bool release_res;
 	printf("thread start.\n");
@@ -243,7 +298,10 @@ static DWORD ServiceThread(LPVOID lpParam)
 	semaphore_gun = temp_arg->semaphore_gun;
 	lock = temp_arg->lock;
 	t_socket = temp_arg->socket;
-
+	char params[MAX_PARAM_LENG];
+	char player_number[NUM_INPUT_LENGTH];
+	char player_curr_guess[NUM_INPUT_LENGTH];
+	char oppennet_curr_guess[NUM_INPUT_LENGTH];
 	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
 	get_msg_type_and_params(AcceptedStr, &msg_type, &username);
 
@@ -313,6 +371,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 	while (!Done)
 	{
+
 		AcceptedStr = NULL;
 		RecvRes = ReceiveString(&AcceptedStr, *t_socket);
 
@@ -334,6 +393,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 		if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_DISCONNECT"))
 		{
+			printf("CLIENT_DISCONNECT\n");
 			break;
 		}
 		else if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_VERSUS"))
@@ -344,78 +404,85 @@ static DWORD ServiceThread(LPVOID lpParam)
 			/// WAIT FOR THE OTHER ONE TO WRITE HIS USERNAME
 			/// READ OPPENNET USERNAME
 
-			if (!lock_write(lock)) { // Locking for write
-				printf("Error while locking for write...\n");
+			if (write_input_to_file(&first, &no_oppennet, username_length, username, lock, SendStr, semaphore_gun))
 				return 1;
-			}
 
-			oFile = create_file_for_write(THREADS_FILE_NAME, 0);
-			if (NULL == oFile) {
-				printf("Error while opening file to write\n");
-				release_write(lock);
-				free(newline);
-				return 1;
-			}
-			dwFileSize = GetFileSize(oFile, NULL);
-			printf("dwFileSize is: %d\n", dwFileSize);
-			if (dwFileSize) // Im first
-				first = 0;
-			else
-				first = 1;
-			
-			write_to_file(username, username_length, oFile, dwFileSize);
-			if (close_handles_proper(oFile) != 1)
-				return 1;
-			release_write(lock); // Releasing Write lock
-			if (first)
-			{
-				printf("IM WAITING\n");
-				wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
-				if (wait_res != WAIT_OBJECT_0)
-				{
-					printf("semaphore_gun WaitForSingleObject timed out\n");
-					strcpy(SendStr, "SERVER_NO_OPPENNTS");
-				}
-				else
-				{
-					no_oppennet = 0;
-					printf("got free\n");
-				}
-			}
-			else
-			{
-				printf("IM freeing\n");
-				release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
-				if (release_res == FALSE)
-					return 1;
-			}
-
-			if (no_oppennet)
+			if (!no_oppennet)
 			{
 				get_oppennet_user_name(first, username_length, oppenet_username, lock);
 				printf("my username is: %s ,oppent username: %s\n", username, oppenet_username);
 				strcpy(SendStr, "SERVER_INVITE:");
 				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+				SendRes = SendString(SendStr, *t_socket);
+				if (SendRes == TRNS_FAILED)
+				{
+					free(AcceptedStr);
+					printf("Service socket error while writing, closing thread.\n");
+					closesocket(*t_socket);
+					return 1;
+				}
+				strcpy(SendStr, "SERVER_SETUP_REQUEST");
+
 			}
+			
+			remove(THREADS_FILE_NAME);
+
 		}
 
-		//	strcpy(SendStr, "SERVER_INVITE:");
-		//	strcat_s(SendStr, MSG_MAX_LENG, "Oppenet name");
-		//}
 		else // fint the unkown 
 		{
-			//get_msg_type_and_params(AcceptedStr, &msg_type, &username);
-			//printf("username is : %s", username);
-			//printf("msg_type is : %s", msg_type);
-			free(AcceptedStr);
-			continue;
+			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
+			printf("params: %s\n", params);
+			printf("msg_type is: %s\n", msg_type);
+
+			if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_SETUP"))
+			{
+				strcpy_s(player_number, 5, params);
+				printf("player_number: %s\n", player_number);
+
+				strcpy_s(SendStr, 27 ,"SERVER_PLAYER_MOVE_REQUEST");
+			}
+			else if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_PLAYER_MOVE"))
+			{
+				strcpy_s(player_curr_guess, 5, params);
+				printf("player_curr_guess: %s\n", player_curr_guess);
+
+				no_oppennet = 1;
+
+				if (write_input_to_file(&first, &no_oppennet, NUM_INPUT_LENGTH-1, player_curr_guess, lock, SendStr, semaphore_gun))
+					return 1;
+
+				if (!no_oppennet)
+				{
+					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_curr_guess, lock);
+					printf("my guess is: %s ,oppent guess: %s\n", player_curr_guess, oppennet_curr_guess);
+					//strcpy(SendStr, "SERVER_INVITE:");
+					//strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+					//SendRes = SendString(SendStr, *t_socket);
+					//if (SendRes == TRNS_FAILED)
+					//{
+					//	free(AcceptedStr);
+					//	printf("Service socket error while writing, closing thread.\n");
+					//	closesocket(*t_socket);
+					//	return 1;
+					//}
+					//strcpy(SendStr, "SERVER_SETUP_REQUEST");
+
+				}
+
+				remove(THREADS_FILE_NAME);
+			}
+			else
+				printf("%s what?????\n", AcceptedStr);
+
 		}
+		no_oppennet = 1; // no need anymore, maybe for another menu
+
 		printf("my username is: %s\n", username);
 		printf("my socket is  : %d\n", *t_socket);
 		printf("my msg is  : %s\n", SendStr);
 
 		SendRes = SendString(SendStr, *t_socket);
-
 		if (SendRes == TRNS_FAILED)
 		{
 			free(AcceptedStr);

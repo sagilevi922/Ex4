@@ -203,3 +203,25 @@ void get_msg_type_and_params(char* input_msg, char* msg_type, char* params)
 	}
 	params[i] = '\0';
 }
+
+//int recieve_str(char* AcceptedStr, SOCKET* t_socket)
+//{
+//	TransferResult_t RecvRes;
+//	RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+//
+//	if (RecvRes == TRNS_FAILED)
+//	{
+//		printf("Service socket error while reading, closing thread.\n");
+//		closesocket(*t_socket);
+//		return 1;
+//	}
+//	else if (RecvRes == TRNS_DISCONNECTED)
+//	{
+//		printf("Connection closed while reading, closing thread.\n");
+//		closesocket(*t_socket);
+//		return 1;
+//	}
+//	else
+//		printf("Got string : %s\n", AcceptedStr);
+//	return 0;
+//}
