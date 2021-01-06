@@ -80,7 +80,6 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 	return 0;
 }
 
-
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 static int FindFirstUnusedThreadSlot(HANDLE semaphore_gun, thread_args** thread_args)
@@ -140,6 +139,7 @@ static void CleanupWorkerThreads()
 		}
 	}
 }
+
 int get_oppennet_user_name(int first, int username_length, char* oppenet_username, lock* lock)
 {
 	int start_pos = 0;
@@ -432,6 +432,38 @@ static DWORD ServiceThread(LPVOID lpParam)
 	return 0;
 }
 
+//Gets the real number of the opponent - real_num, and the player's guess - guess_num,
+//calculate the number of bulls and cows of the player and update the results in  the last argument: results.
+void calc_move_result(char* real_num, char* guess_num, int results[])
+{//results[0]=number of bulls in the current move. result[1]=number of cows in the current move.
+	int i = 0, j = 0;
+	/*real_num_cpy = real_num, guess_num_cpy = guess_num, real_num_digits[4], guess_num_digits[4];*/
+	/*while (real_num_cpy>0 && guess_num_digits>0)
+	{
+		real_num_digits[i] = real_num_cpy % 10;
+		guess_num_digits[i] = guess_num_cpy % 10;
+		real_num_cpy/= 10;
+		guess_num_cpy/= 10;
+		i++;
+	}*/
+	for (i = 0; i < 4; i++)//guess_num_iter
+	{
+		for (j = 0; j < 4; j++)
+		{
+			if (guess_num[i] == real_num[j])//real_num_iter
+			{
+				if (i == j)//BULL
+				{
+					results[0]++;
+					continue;
+				}
+				results[1]++;//COW
+
+			}
+		}
+
+	}
+}
 // SERVER MAIN
 int main(int argc, char* argv[])
 {
@@ -454,6 +486,13 @@ int main(int argc, char* argv[])
 
 	if (init_input_vars(argv, argc, &server_port))
 		return 1;
+
+	char *real_num="4325", *guess_num="2345";
+	int results[2] = { 0 };
+
+	calc_move_result(real_num, guess_num, results);
+	printf("Current move result:\n%s%d\n%s%d\n", GAME_RESULTS_MSG1, results[0], GAME_RESULTS_MSG2, results[1]);
+
 
 	// Initialize Winsock.
 	WSADATA wsaData;
