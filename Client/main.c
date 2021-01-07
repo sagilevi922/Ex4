@@ -257,6 +257,37 @@ int get_user_input_num()
 	return n;
 }
 
+void get_results(char* params)
+{
+	char bull = 'a';
+	char cows = 'a';
+	char oppenet_username[USERNAME_MAX_LENG];
+	char oppenet_move[NUM_INPUT_LENGTH];
+	bull = params[0];
+	cows = params[2];
+
+	int i = 4;
+	int j = 0;
+	while (params[i] != ';')
+	{
+		oppenet_username[j] = params[i];
+		j++;
+		i++;
+	}
+	oppenet_username[j] = '\0';
+	j = 0;
+	i++;
+	while (params[i] != '\0')
+	{
+		oppenet_move[j] = params[i];
+		j++;
+		i++;
+	}
+	oppenet_move[j] = '\0';
+	printf("%s%c\n", GAME_RESULTS_MSG1, bull);
+	printf("%s%c\n", GAME_RESULTS_MSG2, cows);
+	printf("%s%s%s\n", oppenet_username,GAME_RESULTS_MSG3, oppenet_move);
+}
 // Client.exe <server ip> <server port> <username>
 int start_game()
 {
@@ -276,6 +307,8 @@ int start_game()
 	//clientService = temp_arg->clientService;
 	int input_num = 0;
 	char input_num_str[NUM_INPUT_LENGTH];
+
+
 	while (!done)
 	{
 		AcceptedStr = NULL;
@@ -309,11 +342,20 @@ int start_game()
 			strcat_s(SendStr, MSG_MAX_LENG, input_num_str);
 
 		}
-
 		else // unreconize msg
 		{
-			printf("unreconize msg\n");
+			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
+			printf("params: %s\n", params);
+			printf("msg_type is: %s\n", msg_type);
 
+			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_GAME_RESULTS"))
+			{
+				free(AcceptedStr);
+				get_results(params);
+				continue;
+			}
+			else
+				printf("%s what?????\n", AcceptedStr);
 		}
 
 		SendRes = SendString(SendStr, m_socket);

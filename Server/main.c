@@ -33,7 +33,8 @@
 HANDLE ThreadHandles[MAX_THREADS];
 SOCKET ThreadInputs[MAX_THREADS];
 int active_users = 0;
-
+int win = 0;
+int global_round = 0;
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 static int FindFirstUnusedThreadSlot();
@@ -285,6 +286,188 @@ int write_input_to_file(int* first,int* no_oppennet, int username_length, char* 
 }
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 //Service thread is the thread that opens for each successful client connection and "talks" to the client.
+
+int game_progress(int username_length, char* player_number, char* username, char* oppenet_username, SOCKET* t_socket, lock* lock,HANDLE semaphore_gun)
+{
+	int round_results[2] = { 0 };
+	char SendStr[MSG_MAX_LENG];
+	char* msg = NULL;
+
+	TransferResult_t SendRes;
+	TransferResult_t RecvRes;
+
+
+	char* AcceptedStr = NULL;
+	char msg_type[MSG_TYPE_MAX_LENG];
+
+	bool wait_res;
+	int no_oppennet = 1;
+
+	char params[MAX_PARAM_LENG];
+	char oppennet_number[NUM_INPUT_LENGTH];
+	char player_curr_guess[NUM_INPUT_LENGTH];
+	char oppennet_curr_guess[NUM_INPUT_LENGTH];
+	char results_str[5];
+	int first = 0;
+	int game_on = 1;
+	int im_the_winner = 0;
+	bool release_res;
+
+	printf("player_number: %s\n", player_number);
+
+	// exchange players real numbers
+	if (write_input_to_file(&first, &no_oppennet, NUM_INPUT_LENGTH - 1, player_number, lock, SendStr, semaphore_gun))
+		return 1;
+
+	if (!no_oppennet)
+	{
+		get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_number, lock);
+		printf("my player_number is: %s ,oppennet_number: %s\n", player_number, oppennet_number);
+	}
+	remove(THREADS_FILE_NAME);
+
+
+
+	while (!win)
+	{
+			global_round++;
+			if (global_round%2!=0)
+			{
+				printf("IM WAITING for next round\n");
+				wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
+				if (wait_res != WAIT_OBJECT_0)
+				{
+					printf("semaphore_gun WaitForSingleObject timed out\n");
+					strcpy(SendStr, "SERVER_NO_OPPENNTS");
+				}
+				else
+				{
+					printf("got free\n");
+				}
+			}
+			else
+			{
+				printf("IM freeing for next round\n");
+				release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
+				if (release_res == FALSE)
+					return 1;
+			}
+			if (win == 1)
+				break;
+
+			strcpy_s(SendStr, 27, "SERVER_PLAYER_MOVE_REQUEST");
+
+			printf("about to send1 %s \n", SendStr);
+			SendRes = SendString(SendStr, *t_socket);
+			if (SendRes == TRNS_FAILED)
+			{
+				free(AcceptedStr);
+				printf("Service socket error while writing, closing thread.\n");
+				closesocket(*t_socket);
+				return 1;
+			}
+
+			AcceptedStr = NULL;
+			RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+
+			if (RecvRes == TRNS_FAILED)
+			{
+				printf("Service socket error while reading, closing thread.\n");
+				closesocket(*t_socket);
+				return 1;
+			}
+			else if (RecvRes == TRNS_DISCONNECTED)
+			{
+				printf("Connection closed while reading, closing thread.\n");
+				closesocket(*t_socket);
+				return 1;
+			}
+			else
+				printf("Got string : %s\n", AcceptedStr);
+
+			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
+			printf("params: %s\n", params);
+			printf("msg_type is: %s\n", msg_type);
+
+			if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_PLAYER_MOVE"))
+			{
+				strcpy_s(player_curr_guess, 5, params);
+				printf("player_curr_guess: %s\n", player_curr_guess);
+
+				no_oppennet = 1;
+
+				if (write_input_to_file(&first, &no_oppennet, NUM_INPUT_LENGTH - 1, player_curr_guess, lock, SendStr, semaphore_gun))
+					return 1;
+
+				if (!no_oppennet)
+				{
+					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_curr_guess, lock);
+					printf("my guess is: %s ,oppent guess: %s\n", player_curr_guess, oppennet_curr_guess);
+
+				}
+
+				calc_move_result(oppennet_number, player_curr_guess, round_results);
+				printf("my guess is: %s ,oppennet_number: %s\n", player_curr_guess, oppennet_number);
+				printf("cows is: %d ,bulls: %d\n", round_results[1], round_results[0]);
+
+				strcpy_s(SendStr, 21, "SERVER_GAME_RESULTS:");
+
+				results_str[0] = round_results[0] + '0';
+				results_str[1] = ';';
+				results_str[2] = round_results[1] + '0';
+				results_str[3] = ';';
+				results_str[4] = '\0';
+
+				strcat_s(SendStr, MSG_MAX_LENG, results_str);
+				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+				strcat_s(SendStr, MSG_MAX_LENG, ";");
+				strcat_s(SendStr, MSG_MAX_LENG, oppennet_curr_guess);
+				remove(THREADS_FILE_NAME);
+
+				printf("about to send2 %s \n", SendStr);
+
+				SendRes = SendString(SendStr, *t_socket);
+				if (SendRes == TRNS_FAILED)
+				{
+					free(AcceptedStr);
+					printf("Service socket error while writing, closing thread.\n");
+					closesocket(*t_socket);
+					return 1;
+				}
+				if (round_results[0] == 4)
+				{
+					win = 1;
+					im_the_winner = 1;
+				}
+			}
+			if (im_the_winner == 1)
+			{
+				printf("cows is: %d ,bulls: %d\n", round_results[1], round_results[0]);
+
+				strcpy_s(SendStr, 21, "SERVER_WIN:");
+				strcat_s(SendStr, MSG_MAX_LENG, username);
+				strcat_s(SendStr, MSG_MAX_LENG, ";");
+				strcat_s(SendStr, MSG_MAX_LENG, player_number);
+			}
+			else
+			{
+				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+				strcat_s(SendStr, MSG_MAX_LENG, ";");
+				strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
+			}
+			SendRes = SendString(SendStr, *t_socket);
+			if (SendRes == TRNS_FAILED)
+			{
+				free(AcceptedStr);
+				printf("Service socket error while writing, closing thread.\n");
+				closesocket(*t_socket);
+				return 1;
+			}
+
+	}
+	return 0;
+}
+
 static DWORD ServiceThread(LPVOID lpParam)
 {
 	int round_results[2] = { 0 };
@@ -328,7 +511,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 	char oppennet_curr_guess[NUM_INPUT_LENGTH];
 	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
 	get_msg_type_and_params(AcceptedStr, &msg_type, &username);
-
+	char results_str[5];
 	username_length = strlen(username);
 
 
@@ -461,57 +644,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 			if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_SETUP"))
 			{
-				strcpy_s(player_number, 5, params);
-				printf("player_number: %s\n", player_number);
-
-				no_oppennet = 1;
-
-				if (write_input_to_file(&first, &no_oppennet, NUM_INPUT_LENGTH - 1, player_number, lock, SendStr, semaphore_gun))
-					return 1;
-
-				if (!no_oppennet)
-				{
-					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_number, lock);
-					printf("my player_number is: %s ,oppennet_number: %s\n", player_number, oppennet_number);
-				}
-				remove(THREADS_FILE_NAME);
-				strcpy_s(SendStr, 27 ,"SERVER_PLAYER_MOVE_REQUEST");
-			}
-			else if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_PLAYER_MOVE"))
-			{
-				strcpy_s(player_curr_guess, 5, params);
-				printf("player_curr_guess: %s\n", player_curr_guess);
-
-				no_oppennet = 1;
-
-				if (write_input_to_file(&first, &no_oppennet, NUM_INPUT_LENGTH-1, player_curr_guess, lock, SendStr, semaphore_gun))
-					return 1;
-
-				if (!no_oppennet)
-				{
-					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_curr_guess, lock);
-					printf("my guess is: %s ,oppent guess: %s\n", player_curr_guess, oppennet_curr_guess);
-					//strcpy(SendStr, "SERVER_INVITE:");
-					//strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
-					//SendRes = SendString(SendStr, *t_socket);
-					//if (SendRes == TRNS_FAILED)
-					//{
-					//	free(AcceptedStr);
-					//	printf("Service socket error while writing, closing thread.\n");
-					//	closesocket(*t_socket);
-					//	return 1;
-					//}
-					//strcpy(SendStr, "SERVER_SETUP_REQUEST");
-
-				}
-				calc_move_result(oppennet_number, player_curr_guess, round_results);
-				printf("my guess is: %s ,oppennet_number: %s\n", player_curr_guess, oppennet_number);
-				printf("cows is: %d ,bulls: %d\n", round_results[1], round_results[0]);
-
-				//strcpy_s(SendStr, "SERVER_GAME_RESULTS:");
-				//strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
-
-				remove(THREADS_FILE_NAME);
+				game_progress(username_length, params, username, oppenet_username, t_socket, lock, semaphore_gun);
 			}
 			else
 				printf("%s what?????\n", AcceptedStr);
