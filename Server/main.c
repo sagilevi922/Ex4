@@ -328,8 +328,11 @@ int game_progress(int username_length, char* player_number, char* username, char
 
 
 
-	while (!win)
+	while (game_on)
 	{
+			round_results[0] =0;
+			round_results[1] = 0;
+
 			global_round++;
 			if (global_round%2!=0)
 			{
@@ -440,30 +443,108 @@ int game_progress(int username_length, char* player_number, char* username, char
 					im_the_winner = 1;
 				}
 			}
-			if (im_the_winner == 1)
-			{
-				printf("cows is: %d ,bulls: %d\n", round_results[1], round_results[0]);
+	}
 
-				strcpy_s(SendStr, 21, "SERVER_WIN:");
-				strcat_s(SendStr, MSG_MAX_LENG, username);
-				strcat_s(SendStr, MSG_MAX_LENG, ";");
-				strcat_s(SendStr, MSG_MAX_LENG, player_number);
-			}
-			else
-			{
-				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
-				strcat_s(SendStr, MSG_MAX_LENG, ";");
-				strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
-			}
-			SendRes = SendString(SendStr, *t_socket);
-			if (SendRes == TRNS_FAILED)
-			{
-				free(AcceptedStr);
-				printf("Service socket error while writing, closing thread.\n");
-				closesocket(*t_socket);
-				return 1;
-			}
+	strcpy_s(SendStr, 21, "SERVER_WIN:");
 
+	if (im_the_winner == 1)
+	{
+
+		strcat_s(SendStr, MSG_MAX_LENG, username);
+		strcat_s(SendStr, MSG_MAX_LENG, ";");
+		strcat_s(SendStr, MSG_MAX_LENG, player_number);
+	}
+	else
+	{
+		strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+		strcat_s(SendStr, MSG_MAX_LENG, ";");
+		strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
+	}
+
+	SendRes = SendString(SendStr, *t_socket);
+	if (SendRes == TRNS_FAILED)
+	{
+		free(AcceptedStr);
+		printf("Service socket error while writing, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+	return 0;
+}
+
+int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
+{
+	TransferResult_t SendRes;
+	TransferResult_t RecvRes;
+	char SendStr[MSG_MAX_LENG];
+	char* AcceptedStr = NULL;
+	char msg_type[MSG_TYPE_MAX_LENG];
+
+
+	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
+	get_msg_type_and_params(AcceptedStr, &msg_type, username);
+	*username_length = strlen(username);
+
+
+	if (RecvRes == TRNS_FAILED)
+	{
+		printf("Service socket error while reading, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+	else if (RecvRes == TRNS_DISCONNECTED)
+	{
+		printf("Connection closed while reading, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+	else
+	{
+		printf("Got string : %s\n", AcceptedStr);
+	}
+
+	// check how active users
+	printf("trying to connect, current actrive users: %d\n", active_users);
+	if (active_users == 2)
+	{
+		printf("No slots available for client, dropping the connection.\n");
+		strcpy_s(SendStr, 27, "SERVER_DENIED:room is full");
+
+		SendRes = SendString(SendStr, *t_socket);
+
+		if (SendRes == TRNS_FAILED)
+		{
+			printf("Service socket error while writing, closing thread.\n");
+		}
+		printf("Conversation ended.\n");
+		closesocket(*t_socket); //Closing the socket, dropping the connection.
+		return 1;
+	}
+	active_users++;
+	strcpy_s(SendStr, 16, "SERVER_APPROVED");
+	SendRes = SendString(SendStr, *t_socket);
+	printf("my username is: %s\n", username);
+	printf("my socket is  : %d\n", *t_socket);
+	printf("my msg is  : %s\n", SendStr);
+
+	if (SendRes == TRNS_FAILED)
+	{
+		printf("Service socket error while writing, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+
+	strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
+	printf("my username is: %s\n", username);
+	printf("my socket is  : %d\n", *t_socket);
+	printf("my msg is4  : %s\n", SendStr);
+	SendRes = SendString(SendStr, *t_socket);
+
+	if (SendRes == TRNS_FAILED)
+	{
+		printf("Service socket error while writing, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
 	}
 	return 0;
 }
@@ -509,72 +590,9 @@ static DWORD ServiceThread(LPVOID lpParam)
 	char oppennet_number[NUM_INPUT_LENGTH];
 	char player_curr_guess[NUM_INPUT_LENGTH];
 	char oppennet_curr_guess[NUM_INPUT_LENGTH];
-	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
-	get_msg_type_and_params(AcceptedStr, &msg_type, &username);
-	char results_str[5];
-	username_length = strlen(username);
-
-
-	if (RecvRes == TRNS_FAILED)
-	{
-		printf("Service socket error while reading, closing thread.\n");
-		closesocket(*t_socket);
-		return 1;
-	}
-	else if (RecvRes == TRNS_DISCONNECTED)
-	{
-		printf("Connection closed while reading, closing thread.\n");
-		closesocket(*t_socket);
-		return 1;
-	}
-	else
-	{
-		printf("Got string : %s\n", AcceptedStr);
-	}
 	
-	// check how active users
-	printf("trying to connect, current actrive users: %d\n", active_users);
-	if (active_users==2)
-	{
-		printf("No slots available for client, dropping the connection.\n");
-		strcpy_s(SendStr, 27, "SERVER_DENIED:room is full");
-
-		SendRes = SendString(SendStr, *t_socket);
-
-		if (SendRes == TRNS_FAILED)
-		{
-			printf("Service socket error while writing, closing thread.\n");
-		}
-		printf("Conversation ended.\n");
-		closesocket(*t_socket); //Closing the socket, dropping the connection.
+	if (accept_new_player(t_socket, &username_length, &username))
 		return 1;
-	}
-	active_users++;
-	strcpy_s(SendStr,16, "SERVER_APPROVED");
-	SendRes = SendString(SendStr, *t_socket);
-	printf("my username is: %s\n", username);
-	printf("my socket is  : %d\n", *t_socket);
-	printf("my msg is  : %s\n", SendStr);
-
-	if (SendRes == TRNS_FAILED)
-	{
-		printf("Service socket error while writing, closing thread.\n");
-		closesocket(*t_socket);
-		return 1;
-	}
-
-	strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
-	printf("my username is: %s\n", username);
-	printf("my socket is  : %d\n", *t_socket);
-	printf("my msg is  : %s\n", SendStr);
-	SendRes = SendString(SendStr, *t_socket);
-
-	if (SendRes == TRNS_FAILED)
-	{
-		printf("Service socket error while writing, closing thread.\n");
-		closesocket(*t_socket);
-		return 1;
-	}
 
 	while (!Done)
 	{
@@ -629,15 +647,13 @@ static DWORD ServiceThread(LPVOID lpParam)
 					return 1;
 				}
 				strcpy(SendStr, "SERVER_SETUP_REQUEST");
-
 			}
-			
 			remove(THREADS_FILE_NAME);
-
 		}
 
 		else // fint the unkown 
 		{
+
 			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
 			printf("params: %s\n", params);
 			printf("msg_type is: %s\n", msg_type);
@@ -654,7 +670,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 		printf("my username is: %s\n", username);
 		printf("my socket is  : %d\n", *t_socket);
-		printf("my msg is  : %s\n", SendStr);
+		printf("my msg is3  : %s\n", SendStr);
 
 		SendRes = SendString(SendStr, *t_socket);
 		if (SendRes == TRNS_FAILED)
