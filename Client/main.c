@@ -202,7 +202,10 @@ static DWORD SendDataThread(LPVOID lpParam)
 					}
 					else // found an oppenet start game
 					{
-						start_game();
+						if (start_game())
+							printf("game failed");
+						else
+							continue;
 					}
 				}
 			}
@@ -356,7 +359,7 @@ int start_game()
 		{
 			free(AcceptedStr);
 			printf(SERVER_DRAW_MSG);
-			continue;
+			return 0;
 		}
 		else // with params msg
 		{
@@ -374,7 +377,7 @@ int start_game()
 			{
 				free(AcceptedStr);
 				get_results(params,1);
-				continue;
+				return 0;
 			}
 
 			else

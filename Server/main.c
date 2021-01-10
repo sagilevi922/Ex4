@@ -467,17 +467,11 @@ int game_progress(int username_length, char* player_number, char* username, char
 	if (win == 1)
 	{
 		if (im_the_winner == 1)
-		{
 			strcat_s(SendStr, MSG_MAX_LENG, username);
-			strcat_s(SendStr, MSG_MAX_LENG, ";");
-			strcat_s(SendStr, MSG_MAX_LENG, player_number);
-		}
 		else
-		{
 			strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
-			strcat_s(SendStr, MSG_MAX_LENG, ";");
-			strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
-		}
+		strcat_s(SendStr, MSG_MAX_LENG, ";");
+		strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
 
 		SendRes = SendString(SendStr, *t_socket);
 		if (SendRes == TRNS_FAILED)
@@ -665,6 +659,8 @@ static DWORD ServiceThread(LPVOID lpParam)
 			if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_SETUP"))
 			{
 				game_progress(username_length, params, username, oppenet_username, t_socket, lock, semaphore_gun);
+				
+				strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
 			}
 			else
 				printf("%s what?????\n", AcceptedStr);
