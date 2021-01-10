@@ -447,7 +447,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 
 				printf("about to send game results to %s\n%s \n", username, SendStr);
 
-				SendRes = send_string(SendStr, *t_socket);
+				SendRes = SendString(SendStr, *t_socket);
 				if (SendRes == TRNS_FAILED)
 				{
 					free(AcceptedStr);
@@ -473,7 +473,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 		strcat_s(SendStr, MSG_MAX_LENG, ";");
 		strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
 
-		SendRes = send_string(SendStr, *t_socket);
+		SendRes = SendString(SendStr, *t_socket);
 		if (SendRes == TRNS_FAILED)
 		{
 			free(AcceptedStr);
@@ -485,7 +485,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 	else if (win == 2)
 	{
 		strcpy_s(SendStr, 21, "SERVER_DRAW");
-		SendRes = send_string(SendStr, *t_socket);
+		SendRes = SendString(SendStr, *t_socket);
 		if (SendRes == TRNS_FAILED)
 		{
 			free(AcceptedStr);
@@ -518,7 +518,7 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 		printf("No slots available for client, dropping the connection.\n");
 		strcpy_s(SendStr, 27, "SERVER_DENIED:room is full");
 
-		SendRes = send_string(SendStr, *t_socket);
+		SendRes = SendString(SendStr, *t_socket);
 
 		if (SendRes == TRNS_FAILED)
 		{
@@ -530,7 +530,7 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 	}
 	active_users++;
 	strcpy_s(SendStr, 16, "SERVER_APPROVED");
-	SendRes = send_string(SendStr, *t_socket);
+	SendRes = SendString(SendStr, *t_socket);
 	printf("my username is: %s\n", username);
 	printf("my socket is  : %d\n", *t_socket);
 	printf("my msg is  : %s\n", SendStr);
@@ -546,7 +546,7 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 	printf("my username is: %s\n", username);
 	printf("my socket is  : %d\n", *t_socket);
 	printf("my msg is4  : %s\n", SendStr);
-	SendRes = send_string(SendStr, *t_socket);
+	SendRes = SendString(SendStr, *t_socket);
 
 	if (SendRes == TRNS_FAILED)
 	{
@@ -606,7 +606,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 	{
 
 		AcceptedStr = NULL;
-		RecvRes = receive_string(&AcceptedStr, *t_socket);
+		RecvRes = ReceiveString(&AcceptedStr, *t_socket);
 
 		if (Transmit_res(RecvRes, t_socket))
 			return 1;
@@ -636,7 +636,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 				printf("my username is: %s ,oppent username: %s\n", username, oppenet_username);
 				strcpy(SendStr, "SERVER_INVITE:");
 				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
-				SendRes = send_string(SendStr, *t_socket);
+				SendRes = SendString(SendStr, *t_socket);
 				if (SendRes == TRNS_FAILED)
 				{
 					free(AcceptedStr);
@@ -672,7 +672,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 		printf("my socket is  : %d\n", *t_socket);
 		printf("my msg is3  : %s\n", SendStr);
 
-		SendRes = send_string(SendStr, *t_socket);
+		SendRes = SendString(SendStr, *t_socket);
 		if (SendRes == TRNS_FAILED)
 		{
 			free(AcceptedStr);
