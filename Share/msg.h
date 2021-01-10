@@ -18,8 +18,8 @@
 #define SERVER_WIN 12
 #define SERVER_DRAW 13
 #define SERVER_NO_OPPENNTS 14
-
 #define CLIENT_REQUEST_LENG 14
+
 //#define CLIENT_VERSUS 1
 //#define CLIENT_SETUP 2
 //#define CLIENT_PLAYER_MOVE 3

@@ -71,7 +71,6 @@ int check_recieved(TransferResult_t RecvRes)
 
 int disconnect(SOCKET* m_socket)
 {
-	disconnect_socket(m_socket);
 	TransferResult_t SendRes;
 	printf("disconnecting...\n");
 	SendRes = SendString("CLIENT_DISCONNECT", m_socket);
@@ -116,7 +115,9 @@ int get_versus_respond()
 
 	else // recieved a msg
 	{
-		if (STRINGS_ARE_EQUAL(msg_type, "SERVER_NO_OPPENNTS")) 
+		printf("msg recived from CLIENT_VERSUS: %s \n", AcceptedStr);
+
+		if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_NO_OPPENNTS"))
 		{
 			free(AcceptedStr);
 			printf("NO OPPENNTS\n");
@@ -202,6 +203,9 @@ static DWORD SendDataThread(LPVOID lpParam)
 							free(AcceptedStr);
 							return 1;
 						}
+						// go back to recieve
+						game_finished = 1;
+						break;
 					}
 					else // found an oppenet start game
 					{
