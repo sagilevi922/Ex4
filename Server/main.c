@@ -231,10 +231,34 @@ void calc_move_result(char* real_num, char* guess_num, int results[])
 
 int write_input_to_file(int* first,int* no_oppennet, int username_length, char* username, lock* lock, char* SendStr, HANDLE semaphore_gun)
 {
+
 	HANDLE oFile = NULL;
 	DWORD dwFileSize = 0;
 	bool wait_res;
 	bool release_res;
+
+	if (*first)
+	{
+		printf("IM WAITING\n");
+		wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
+		if (wait_res != WAIT_OBJECT_0)
+		{
+			printf("semaphore_gun WaitForSingleObject timed out\n");
+			strcpy(SendStr, "SERVER_NO_OPPENNTS");
+			remove(THREADS_FILE_NAME); // in case of timeout deleting the file before writing
+		}
+		else
+			printf("got free\n");
+
+	}
+	else
+	{
+		printf("IM freeing\n");
+		remove(THREADS_FILE_NAME); // reseting the file before releasing
+		release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
+		if (release_res == FALSE)
+			return 1;
+	}
 
 	if (!lock_write(lock)) { // Locking for write
 		printf("Error while locking for write...\n");
@@ -280,7 +304,6 @@ int write_input_to_file(int* first,int* no_oppennet, int username_length, char* 
 		if (release_res == FALSE)
 			return 1;
 		*no_oppennet = 0;
-
 	}
 	return 0;
 }
@@ -406,7 +429,6 @@ int game_progress(int username_length, char* player_number, char* username, char
 				{
 					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_curr_guess, lock);
 					printf("my guess is: %s ,oppent guess: %s\n", player_curr_guess, oppennet_curr_guess);
-
 				}
 
 				calc_move_result(oppennet_number, player_curr_guess, round_results);
@@ -449,7 +471,6 @@ int game_progress(int username_length, char* player_number, char* username, char
 
 	if (im_the_winner == 1)
 	{
-
 		strcat_s(SendStr, MSG_MAX_LENG, username);
 		strcat_s(SendStr, MSG_MAX_LENG, ";");
 		strcat_s(SendStr, MSG_MAX_LENG, player_number);
@@ -648,7 +669,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 				}
 				strcpy(SendStr, "SERVER_SETUP_REQUEST");
 			}
-			remove(THREADS_FILE_NAME);
+			//remove(THREADS_FILE_NAME); not sync
 		}
 
 		else // fint the unkown 

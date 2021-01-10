@@ -299,12 +299,7 @@ int start_game()
 	char params[MAX_PARAM_LENG];
 	char msg_type[MSG_TYPE_MAX_LENG];
 	int done = 0;
-	//thread_args_client* temp_arg = (thread_args_client*)lpParam;
-	//char* server_address; int server_port; char* username; SOCKADDR_IN clientService;
-	//server_address = temp_arg->server_address;
-	//server_port = temp_arg->server_port;
-	//username = temp_arg->username;
-	//clientService = temp_arg->clientService;
+
 	int input_num = 0;
 	char input_num_str[NUM_INPUT_LENGTH];
 
@@ -349,6 +344,12 @@ int start_game()
 			printf("msg_type is: %s\n", msg_type);
 
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_GAME_RESULTS"))
+			{
+				free(AcceptedStr);
+				get_results(params);
+				continue;
+			}
+			else if (STRINGS_ARE_EQUAL(msg_type, "SERVER_GAME_RESULTS"))
 			{
 				free(AcceptedStr);
 				get_results(params);
