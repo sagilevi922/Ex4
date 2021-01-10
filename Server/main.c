@@ -22,9 +22,7 @@
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 #define NUM_OF_CLIENTS 2
-
 #define MAX_THREADS 3
-
 #define MAX_LOOPS 3
 
 
@@ -354,7 +352,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 		printf("my player_number is: %s ,oppennet_number: %s\n", player_number, oppennet_number);
 	}
 	remove(THREADS_FILE_NAME);
-
+	win = 0;
 	printf("game started\n");
 
 	while (game_on)
@@ -372,7 +370,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 			if (wait_res != WAIT_OBJECT_0)
 			{
 				printf("semaphore_gun WaitForSingleObject timed out\n");
-				strcpy(SendStr, "SERVER_NO_OPPENNTS");
+				return 1;
 			}
 			else
 				printf("got free for next round\n");
@@ -427,6 +425,8 @@ int game_progress(int username_length, char* player_number, char* username, char
 				get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_curr_guess, lock, semaphore_gun);
 				printf("my guess is: %s ,oppent guess: %s\n", player_curr_guess, oppennet_curr_guess);
 			}
+			if (active_users == 1)
+				return 1;
 
 			calc_move_result(oppennet_number, player_curr_guess, round_results);
 			printf("my guess is: %s ,oppennet_number: %s\n", player_curr_guess, oppennet_number);
@@ -495,7 +495,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 			return 1;
 		}
 	}
-	win = 0;
+
 	return 0;
 }
 
@@ -636,14 +636,6 @@ static DWORD ServiceThread(LPVOID lpParam)
 			break;
 			/////////////////////////////////////////////////// matan
 
-			//strcpy(SendStr, "SERVER_OPPONENT_QUIT");
-			//SendRes = SendString(SendStr, *t_socket);
-			//if (SendRes == TRNS_FAILED)
-			//{
-			//	printf("Service socket error while writing, closing thread.\n");
-			//	error_indicator = 1;
-			//	break;
-			//}
 			/////////////////////////////////////////////////// end of matan
 		}
 		else if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_VERSUS"))
@@ -657,7 +649,6 @@ static DWORD ServiceThread(LPVOID lpParam)
 			if (write_input_to_file(&first, &no_oppennet, username_length, username, lock, SendStr, semaphore_gun))
 			{
 				error_indicator = 1;
-
 				break;
 			}
 			if (!no_oppennet)
@@ -682,15 +673,28 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 		else // find the unkown 
 		{
-
 			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
 			printf("params: %s\n", params);
 			printf("msg_type is: %s\n", msg_type);
 
 			if (STRINGS_ARE_EQUAL(msg_type, "CLIENT_SETUP"))
 			{
-				game_progress(username_length, params, username, oppenet_username, t_socket, lock, semaphore_gun);
-
+				if (game_progress(username_length, params, username, oppenet_username, t_socket, lock, semaphore_gun))
+				{
+					printf("active_users: %d", active_users);
+					if (active_users == 1)
+					{
+						strcpy(SendStr, "SERVER_OPPONENT_QUIT");
+						SendRes = SendString(SendStr, *t_socket);
+						if (SendRes == TRNS_FAILED)
+						{
+							printf("Service socket error while writing, closing thread.\n");
+							error_indicator = 1;
+							break;
+						}
+					}
+					// else error in game TODO free stuff
+				}
 				strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
 			}
 			else

@@ -229,6 +229,7 @@ static DWORD SendDataThread(LPVOID lpParam)
 		}
 		else // unreconize msg
 		{
+			printf("unreconize msg\n");
 			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
 			printf("params: %s\n", params);
 			printf("msg_type is: %s\n", msg_type);
