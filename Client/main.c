@@ -101,7 +101,7 @@ int get_versus_respond()
 	if (set_socket_timeout(VERSUS_TIMEOUT, m_socket)) // setting timeout for socket 30 sec
 		return -1;
 
-	printf("waiting for input from server\n");
+	printf("waiting for feedback about CLIENT_VERSUS from server\n");
 	RecvRes = ReceiveString(&AcceptedStr, m_socket);
 
 	if (set_socket_timeout(CLIENT_TIMEOUT, m_socket)) // return timeout for socket 15 sec
@@ -156,7 +156,7 @@ static DWORD SendDataThread(LPVOID lpParam)
 	server_port = temp_arg->server_port;
 	username= temp_arg->username;
 	clientService= temp_arg->clientService;
-
+	int game_finished = 0;
 
 	while (!done)
 	{
@@ -205,12 +205,15 @@ static DWORD SendDataThread(LPVOID lpParam)
 						if (start_game())
 							printf("game failed");
 						else
-							continue;
+						{
+							game_finished = 1;
+							break;
+						}
 					}
 				}
 			}
 		}
-		
+
 		else // unreconize msg
 		{
 			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
@@ -226,7 +229,11 @@ static DWORD SendDataThread(LPVOID lpParam)
 			else
 				printf("%s what?????\n", AcceptedStr);
 		}
-
+		if (game_finished)
+		{
+			game_finished = 0;
+			continue;
+		}
 		SendRes = SendString(SendStr, m_socket);
 		if (SendRes == TRNS_FAILED)
 		{
@@ -266,7 +273,6 @@ void get_results(char* params, int win_mode)
 	char cows = 'a';
 	char oppenet_username[USERNAME_MAX_LENG];
 	char oppenet_move[NUM_INPUT_LENGTH];
-
 
 	int i = 4;
 	int j = 0;
@@ -438,6 +444,8 @@ int get_input_choice()
 		{
 			return 2;
 		}
+		else if (!user_input)
+			continue;
 		else
 			printf("Please choose again: 1/2?\n");
 	}

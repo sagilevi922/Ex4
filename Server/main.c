@@ -494,6 +494,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 			return 1;
 		}
 	}
+	win = 0;
 	return 0;
 }
 
@@ -636,6 +637,8 @@ static DWORD ServiceThread(LPVOID lpParam)
 				printf("my username is: %s ,oppent username: %s\n", username, oppenet_username);
 				strcpy(SendStr, "SERVER_INVITE:");
 				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+
+				printf("Sending server invite: %s\n", SendStr);
 				SendRes = SendString(SendStr, *t_socket);
 				if (SendRes == TRNS_FAILED)
 				{
