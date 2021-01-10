@@ -23,7 +23,7 @@ typedef struct thread_arguments_client {
 	char* server_address;
 	int server_port;
 	char* username;
-	SOCKADDR_IN client_service;
+	SOCKADDR_IN clientService;
 } thread_args_client;
 
 
