@@ -69,10 +69,11 @@ int check_recieved(TransferResult_t RecvRes)
 	return 0;
 }
 
-int disconnect()
+int disconnect(SOCKET* m_socket)
 {
+	disconnect_socket(m_socket);
 	TransferResult_t SendRes;
-	printf("Quitting...\n");
+	printf("disconnecting...\n");
 	SendRes = SendString("CLIENT_DISCONNECT", m_socket);
 	if (SendRes == TRNS_FAILED)
 	{
@@ -177,7 +178,7 @@ static DWORD SendDataThread(LPVOID lpParam)
 				choice = get_input_choice();
 				if (choice == 2) //quitting the game
 				{
-					disconnect();
+					disconnect(&m_socket);
 					free(AcceptedStr);
 					return 0;
 				}
@@ -188,13 +189,14 @@ static DWORD SendDataThread(LPVOID lpParam)
 						continue;
 					else if (no_oppennet == -1) // error at the the func
 					{
-						disconnect();
+						disconnect(&m_socket);
 						free(AcceptedStr);
 						return 0;
 					}
 					else if (no_oppennet == -2) // timeout at wait - 30 sec
 					{// show fail and recinnect msg
-						disconnect();
+						if (reconnect_msg(2, server_address, server_port, &m_socket)) //closesocket
+							return 1;
 						if (connect_to_server(server_address, server_port, username, clientService))
 						{ // TODO FREE PROPER
 							free(AcceptedStr);
@@ -214,7 +216,12 @@ static DWORD SendDataThread(LPVOID lpParam)
 				}
 			}
 		}
-
+		else if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_OPPONENT_QUIT"))
+		{
+			free(AcceptedStr);
+			printf(SERVER_OPPONENT_QUIT_MSG);
+			continue;
+		}
 		else // unreconize msg
 		{
 			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
@@ -366,6 +373,12 @@ int start_game()
 		{
 			free(AcceptedStr);
 			printf(SERVER_DRAW_MSG);
+			return 0;
+		}
+		else if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_OPPONENT_QUIT"))
+		{
+			free(AcceptedStr);
+			printf(SERVER_OPPONENT_QUIT_MSG);
 			return 0;
 		}
 		else // with params msg
