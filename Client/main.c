@@ -257,17 +257,24 @@ int get_user_input_num()
 	return n;
 }
 
-void get_results(char* params)
+void get_results(char* params, int win_mode)
 {
 	char bull = 'a';
 	char cows = 'a';
 	char oppenet_username[USERNAME_MAX_LENG];
 	char oppenet_move[NUM_INPUT_LENGTH];
-	bull = params[0];
-	cows = params[2];
+
 
 	int i = 4;
 	int j = 0;
+	if (win_mode)
+		i = 0;
+	else
+	{
+		bull = params[0];
+		cows = params[2];
+	}
+
 	while (params[i] != ';')
 	{
 		oppenet_username[j] = params[i];
@@ -284,10 +291,18 @@ void get_results(char* params)
 		i++;
 	}
 	oppenet_move[j] = '\0';
-	printf("%s%c\n", GAME_RESULTS_MSG1, bull);
-	printf("%s%c\n", GAME_RESULTS_MSG2, cows);
-	printf("%s%s%s\n", oppenet_username,GAME_RESULTS_MSG3, oppenet_move);
+
+	if (win_mode)
+		printf("%s%s%s\n", oppenet_username, SERVER_WIN_MSG, oppenet_move);
+	else
+	{
+		printf("%s%c\n", GAME_RESULTS_MSG1, bull);
+		printf("%s%c\n", GAME_RESULTS_MSG2, cows);
+		printf("%s%s%s\n", oppenet_username, GAME_RESULTS_MSG3, oppenet_move);
+	}
+
 }
+
 // Client.exe <server ip> <server port> <username>
 int start_game()
 {
@@ -337,7 +352,13 @@ int start_game()
 			strcat_s(SendStr, MSG_MAX_LENG, input_num_str);
 
 		}
-		else // unreconize msg
+		else if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_DRAW"))
+		{
+			free(AcceptedStr);
+			printf(SERVER_DRAW_MSG);
+			continue;
+		}
+		else // with params msg
 		{
 			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
 			printf("params: %s\n", params);
@@ -346,15 +367,16 @@ int start_game()
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_GAME_RESULTS"))
 			{
 				free(AcceptedStr);
-				get_results(params);
+				get_results(params,0);
 				continue;
 			}
-			else if (STRINGS_ARE_EQUAL(msg_type, "SERVER_GAME_RESULTS"))
+			else if (STRINGS_ARE_EQUAL(msg_type, "SERVER_WIN"))
 			{
 				free(AcceptedStr);
-				get_results(params);
+				get_results(params,1);
 				continue;
 			}
+
 			else
 				printf("%s what?????\n", AcceptedStr);
 		}

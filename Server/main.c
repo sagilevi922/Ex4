@@ -140,7 +140,7 @@ static void CleanupWorkerThreads()
 		}
 	}
 } 
-int get_oppennet_user_name(int first, int username_length, char* oppenet_username, lock* lock)
+int get_oppennet_user_name(int first, int username_length, char* oppenet_username, lock* lock, HANDLE semaphore_gun)
 {
 	int start_pos = 0;
 	int end_pos = 0;
@@ -152,6 +152,8 @@ int get_oppennet_user_name(int first, int username_length, char* oppenet_usernam
 	//	printf("Error while Locking for read...\n");
 	//	return 1;
 	//}
+	bool wait_res;
+	bool release_res;
 
 	hFile = get_input_file_handle(THREADS_FILE_NAME);
 	if (NULL == hFile) {
@@ -197,12 +199,29 @@ int get_oppennet_user_name(int first, int username_length, char* oppenet_usernam
 		release_read(lock);
 		return 1;
 	}
-	//if (!release_read(lock)) { // Releasing Read lock
-	//	printf("Error while release lock for read...");
-	//	if (close_handles_proper(hFile) != 1)
-	//		return 1;
-	//	return 1;
-	//}
+
+	if (first)
+	{
+		printf("IM WAITING\n");
+		wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
+		if (wait_res != WAIT_OBJECT_0)
+		{
+			printf("semaphore_gun WaitForSingleObject timed out\n");
+			//strcpy(SendStr, "SERVER_NO_OPPENNTS"); // TODO fix handle no oppenet
+			remove(THREADS_FILE_NAME); // in case of timeout deleting the file before writing
+		}
+		else
+			printf("got free\n");
+	}
+	else
+	{
+		printf("IM freeing\n");
+		remove(THREADS_FILE_NAME); // reseting the file before releasing
+		release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
+		if (release_res == FALSE)
+			return 1;
+	}
+
 
 	return 0;
 }
@@ -236,29 +255,6 @@ int write_input_to_file(int* first,int* no_oppennet, int username_length, char* 
 	DWORD dwFileSize = 0;
 	bool wait_res;
 	bool release_res;
-
-	if (*first)
-	{
-		printf("IM WAITING\n");
-		wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
-		if (wait_res != WAIT_OBJECT_0)
-		{
-			printf("semaphore_gun WaitForSingleObject timed out\n");
-			strcpy(SendStr, "SERVER_NO_OPPENNTS");
-			remove(THREADS_FILE_NAME); // in case of timeout deleting the file before writing
-		}
-		else
-			printf("got free\n");
-
-	}
-	else
-	{
-		printf("IM freeing\n");
-		remove(THREADS_FILE_NAME); // reseting the file before releasing
-		release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
-		if (release_res == FALSE)
-			return 1;
-	}
 
 	if (!lock_write(lock)) { // Locking for write
 		printf("Error while locking for write...\n");
@@ -344,7 +340,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 
 	if (!no_oppennet)
 	{
-		get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_number, lock);
+		get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_number, lock, semaphore_gun);
 		printf("my player_number is: %s ,oppennet_number: %s\n", player_number, oppennet_number);
 	}
 	remove(THREADS_FILE_NAME);
@@ -378,8 +374,9 @@ int game_progress(int username_length, char* player_number, char* username, char
 				if (release_res == FALSE)
 					return 1;
 			}
-			if (win == 1)
+			if (win == 1 || win == 2)
 				break;
+
 
 			strcpy_s(SendStr, 27, "SERVER_PLAYER_MOVE_REQUEST");
 
@@ -427,7 +424,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 
 				if (!no_oppennet)
 				{
-					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_curr_guess, lock);
+					get_oppennet_user_name(first, NUM_INPUT_LENGTH - 1, oppennet_curr_guess, lock, semaphore_gun);
 					printf("my guess is: %s ,oppent guess: %s\n", player_curr_guess, oppennet_curr_guess);
 				}
 
@@ -492,7 +489,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 			return 1;
 		}
 	}
-	if (win == 2)
+	else if (win == 2)
 	{
 		strcpy_s(SendStr, 21, "SERVER_DRAW");
 		SendRes = SendString(SendStr, *t_socket);
@@ -669,7 +666,7 @@ static DWORD ServiceThread(LPVOID lpParam)
 
 			if (!no_oppennet)
 			{
-				get_oppennet_user_name(first, username_length, oppenet_username, lock);
+				get_oppennet_user_name(first, username_length, oppenet_username, lock, semaphore_gun);
 				printf("my username is: %s ,oppent username: %s\n", username, oppenet_username);
 				strcpy(SendStr, "SERVER_INVITE:");
 				strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
