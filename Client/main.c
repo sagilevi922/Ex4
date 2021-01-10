@@ -194,6 +194,7 @@ static DWORD SendDataThread(LPVOID lpParam)
 					}
 					else if (no_oppennet == -2) // timeout at wait - 30 sec
 					{// show fail and recinnect msg
+						disconnect();
 						if (connect_to_server(server_address, server_port, username, clientService))
 						{ // TODO FREE PROPER
 							free(AcceptedStr);
@@ -445,6 +446,10 @@ int get_input_choice()
 			return 2;
 		}
 		else if (!user_input)
+			continue;
+		else if (STRINGS_ARE_EQUAL(user_input, "\n"))
+			continue;
+		else if (STRINGS_ARE_EQUAL(user_input, ""))
 			continue;
 		else
 			printf("Please choose again: 1/2?\n");

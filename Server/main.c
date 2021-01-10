@@ -102,6 +102,7 @@ static int FindFirstUnusedThreadSlot(HANDLE semaphore_gun, thread_args** thread_
 
 			if (Res == WAIT_OBJECT_0) // this thread finished running
 			{
+				active_users--;
 				CloseHandle(ThreadHandles[Ind]);
 				ThreadHandles[Ind] = NULL;
 				free(*(thread_args+ Ind));
@@ -355,6 +356,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 	remove(THREADS_FILE_NAME);
 
 	printf("game started\n");
+	win = 0;
 
 	while (game_on)
 	{
@@ -494,7 +496,6 @@ int game_progress(int username_length, char* player_number, char* username, char
 			return 1;
 		}
 	}
-	win = 0;
 	return 0;
 }
 
