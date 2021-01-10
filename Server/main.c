@@ -34,7 +34,7 @@ int active_users = 0;
 int win = 0;
 int global_round = 0;
 int global_read = 0;
-
+int about_to_close = 0;
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 static int FindFirstUnusedThreadSlot();
@@ -117,13 +117,13 @@ static int FindFirstUnusedThreadSlot(HANDLE semaphore_gun, thread_args** thread_
 static void CleanupWorkerThreads()
 {
 	int Ind;
-
+	about_to_close = 1;
 	for (Ind = 0; Ind < NUM_OF_CLIENTS; Ind++)
 	{
 		if (ThreadHandles[Ind] != NULL)
 		{
 			// poll to check if thread finished running:
-			DWORD Res = WaitForSingleObject(ThreadHandles[Ind], INFINITE);
+			DWORD Res = WaitForSingleObject(ThreadHandles[Ind], WAIT_FOR_THREAD_TIME);
 
 			if (Res == WAIT_OBJECT_0)
 			{
@@ -134,7 +134,9 @@ static void CleanupWorkerThreads()
 			}
 			else
 			{
-				printf("Waiting for thread failed. Ending program\n");
+				printf("Waiting for thread failed. Teminating Thread\n");
+				TerminateThread(ThreadHandles[Ind], BRUTAL_TERMINATION_CODE);
+
 				return;
 			}
 		}
@@ -509,6 +511,8 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 
 	RecvRes = ReceiveString(&AcceptedStr, *t_socket);  // get username
 	get_msg_type_and_params(AcceptedStr, &msg_type, username);
+	if (!STRINGS_ARE_EQUAL(msg_type, "CLIENT_REQUEST"))
+		return 1;
 	*username_length = strlen(username);
 	if (Transmit_res(RecvRes, t_socket))
 		return 1;
@@ -523,11 +527,7 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 		SendRes = SendString(SendStr, *t_socket);
 
 		if (SendRes == TRNS_FAILED)
-		{
 			printf("Service socket error while writing, closing thread.\n");
-		}
-		printf("Conversation ended.\n");
-		closesocket(*t_socket); //Closing the socket, dropping the connection.
 		return 1;
 	}
 	active_users++;
@@ -541,7 +541,6 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 	{
 		printf("Service socket error while writing, closing thread.\n");
 		active_users--;
-		closesocket(*t_socket);
 		return 1;
 	}
 
@@ -555,7 +554,13 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 	{
 		printf("Service socket error while writing, closing thread.\n");
 		active_users--;
-		closesocket(*t_socket);
+		return 1;
+	}
+	if (set_socket_timeout(INFINITE, *t_socket))
+	{
+		printf("set_socket_timeout INFINITE\n");
+
+		closesocket(*t_socket); //Closing the socket, dropping the connection.
 		return 1;
 	}
 	return 0;
@@ -604,15 +609,24 @@ static DWORD ServiceThread(LPVOID lpParam)
 	char oppennet_curr_guess[NUM_INPUT_LENGTH];
 	char exit_string[5];
 
+	if (set_socket_timeout(SERVER_TIMEOUT, *t_socket))
+	{
+		printf("set_socket_timeout SERVER_TIMEOUT\n");
+		closesocket(*t_socket); //Closing the socket, dropping the connection.
+		return 1;
+	}
 	if (accept_new_player(t_socket, &username_length, &username))
 	{
 		printf("Conversation ended.\n");
-		closesocket(*t_socket);
+		closesocket(*t_socket); //Closing the socket, dropping the connection.
 		return 1;
 	}
 
 	while (!Done)
 	{
+
+		if (about_to_close)
+			break;
 		//handling sudden exit in the server console -step 2 of server.
 		//scanf("%s", exit_string);
 		//if (STRINGS_ARE_EQUAL(exit_string, "exit"))
@@ -625,6 +639,11 @@ static DWORD ServiceThread(LPVOID lpParam)
 		if (Transmit_res(RecvRes, t_socket)) {
 			error_indicator = 1;
 			break;
+		}
+		if (set_socket_timeout(SERVER_TIMEOUT, *t_socket))
+		{
+			closesocket(*t_socket); //Closing the socket, dropping the connection.
+			return 1;
 		}
 		else
 			printf("Got string : %s\n", AcceptedStr);
@@ -696,6 +715,11 @@ static DWORD ServiceThread(LPVOID lpParam)
 					// else error in game TODO free stuff
 				}
 				strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
+				if (set_socket_timeout(INFINITE, *t_socket))
+				{
+					closesocket(*t_socket); //Closing the socket, dropping the connection.
+					return 1;
+				}
 			}
 			else
 				printf("%s what?????\n", AcceptedStr);
@@ -767,8 +791,9 @@ int main(int argc, char* argv[])
 	if (MainSocket == INVALID_SOCKET)
 	{
 		printf("Error at socket( ): %ld\n", WSAGetLastError());
-		goto server_cleanup_1;
-		//TODO CLEAR SERVE
+		if (WSACleanup() == SOCKET_ERROR)
+			printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+		return 1;
 	}
 
 
@@ -777,8 +802,11 @@ int main(int argc, char* argv[])
 	{
 		printf("The string \"%s\" cannot be converted into an ip address. ending program.\n",
 			SERVER_ADDRESS_STR);
-		goto server_cleanup_2;
-		//TODO CLEAR SERVE
+		if (closesocket(MainSocket) == SOCKET_ERROR)
+			printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+		if (WSACleanup() == SOCKET_ERROR)
+			printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+		return 1;
 
 	}
 
@@ -800,8 +828,9 @@ int main(int argc, char* argv[])
 	if (bindRes == SOCKET_ERROR)
 	{
 		printf("bind( ) failed with error %ld. Ending program\n", WSAGetLastError());
-		goto server_cleanup_2;
-		//TODO CLEAR SERVE
+		if (WSACleanup() == SOCKET_ERROR)
+			printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+		return 1;
 
 	}
 
@@ -810,9 +839,11 @@ int main(int argc, char* argv[])
 	if (ListenRes == SOCKET_ERROR)
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
-		goto server_cleanup_2;
-		//TODO CLEAR SERVE
-
+		if (closesocket(MainSocket) == SOCKET_ERROR)
+			printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+		if (WSACleanup() == SOCKET_ERROR)
+			printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+		return 1;
 	}
 
 	// Initialize all thread handles to NULL, to mark that they have not been initialized
@@ -830,20 +861,24 @@ int main(int argc, char* argv[])
 	HANDLE semaphore_gun = NULL;
 	semaphore_gun = CreateSemaphore(NULL, 0, 1, NULL);  // creats a semphore for paralllel threads func
 	if (NULL == semaphore_gun)
-	{
 		return 1;
-	}
 
+	// while(server up) -- accept new clients
 	for (Loop = 0; Loop < 4; Loop++)
 	{
+
 		Ind = FindFirstUnusedThreadSlot(semaphore_gun, thread_args); // clean threads that are finished
 
 		AcceptedSockets[Ind] = accept(MainSocket, NULL, NULL);
 		if (AcceptedSockets[Ind] == INVALID_SOCKET)
 		{
 			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
-			goto server_cleanup_3;
-			//TODO CLEAR SERVE
+			CleanupWorkerThreads();
+			if (closesocket(MainSocket) == SOCKET_ERROR)
+				printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+			if (WSACleanup() == SOCKET_ERROR)
+				printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+			return 1;
 		}
 
 		printf("index: %d", Ind);
@@ -870,15 +905,5 @@ int main(int argc, char* argv[])
 			NULL
 		);
 	} // for ( Loop = 0; Loop < MAX_LOOPS; Loop++ )
-
-server_cleanup_3:
-	CleanupWorkerThreads();
-
-server_cleanup_2:
-	if (closesocket(MainSocket) == SOCKET_ERROR)
-		printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
-
-server_cleanup_1:
-	if (WSACleanup() == SOCKET_ERROR)
-		printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+	return 0;
 }
