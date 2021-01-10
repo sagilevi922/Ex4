@@ -461,34 +461,48 @@ int game_progress(int username_length, char* player_number, char* username, char
 				}
 				if (round_results[0] == 4)
 				{
-					win = 1;
+					win++;
 					im_the_winner = 1;
 				}
 			}
 	}
 
 	strcpy_s(SendStr, 21, "SERVER_WIN:");
+	if (win == 1)
+	{
+		if (im_the_winner == 1)
+		{
+			strcat_s(SendStr, MSG_MAX_LENG, username);
+			strcat_s(SendStr, MSG_MAX_LENG, ";");
+			strcat_s(SendStr, MSG_MAX_LENG, player_number);
+		}
+		else
+		{
+			strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
+			strcat_s(SendStr, MSG_MAX_LENG, ";");
+			strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
+		}
 
-	if (im_the_winner == 1)
-	{
-		strcat_s(SendStr, MSG_MAX_LENG, username);
-		strcat_s(SendStr, MSG_MAX_LENG, ";");
-		strcat_s(SendStr, MSG_MAX_LENG, player_number);
+		SendRes = SendString(SendStr, *t_socket);
+		if (SendRes == TRNS_FAILED)
+		{
+			free(AcceptedStr);
+			printf("Service socket error while writing, closing thread.\n");
+			closesocket(*t_socket);
+			return 1;
+		}
 	}
-	else
+	if (win == 2)
 	{
-		strcat_s(SendStr, MSG_MAX_LENG, oppenet_username);
-		strcat_s(SendStr, MSG_MAX_LENG, ";");
-		strcat_s(SendStr, MSG_MAX_LENG, oppennet_number);
-	}
-
-	SendRes = SendString(SendStr, *t_socket);
-	if (SendRes == TRNS_FAILED)
-	{
-		free(AcceptedStr);
-		printf("Service socket error while writing, closing thread.\n");
-		closesocket(*t_socket);
-		return 1;
+		strcpy_s(SendStr, 21, "SERVER_DRAW");
+		SendRes = SendString(SendStr, *t_socket);
+		if (SendRes == TRNS_FAILED)
+		{
+			free(AcceptedStr);
+			printf("Service socket error while writing, closing thread.\n");
+			closesocket(*t_socket);
+			return 1;
+		}
 	}
 	return 0;
 }
