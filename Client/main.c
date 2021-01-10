@@ -73,12 +73,13 @@ int disconnect(SOCKET* m_socket)
 {
 	TransferResult_t SendRes;
 	printf("disconnecting...\n");
-	SendRes = SendString("CLIENT_DISCONNECT", m_socket);
+	SendRes = SendString("CLIENT_DISCONNECT", *m_socket);
 	if (SendRes == TRNS_FAILED)
 	{
 		printf("Socket error while trying to write data to socket - CLIENT_DISCONNECT\n");
 		return 1;
 	}
+	disconnect_socket(m_socket);
 	return 0;
 }
 // 0 mean there is oppent, 1 means no oppennet

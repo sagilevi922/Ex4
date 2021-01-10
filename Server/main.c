@@ -633,17 +633,17 @@ static DWORD ServiceThread(LPVOID lpParam)
 		if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_DISCONNECT"))
 		{
 			printf("CLIENT_DISCONNECT\n");
-
+			break;
 			/////////////////////////////////////////////////// matan
 
-			strcpy(SendStr, "SERVER_OPPONENT_QUIT");
-			SendRes = SendString(SendStr, *t_socket);
-			if (SendRes == TRNS_FAILED)
-			{
-				printf("Service socket error while writing, closing thread.\n");
-				error_indicator = 1;
-				break;
-			}
+			//strcpy(SendStr, "SERVER_OPPONENT_QUIT");
+			//SendRes = SendString(SendStr, *t_socket);
+			//if (SendRes == TRNS_FAILED)
+			//{
+			//	printf("Service socket error while writing, closing thread.\n");
+			//	error_indicator = 1;
+			//	break;
+			//}
 			/////////////////////////////////////////////////// end of matan
 		}
 		else if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_VERSUS"))
