@@ -137,6 +137,22 @@ TransferResult_t ReceiveString( char** OutputStrPtr, SOCKET sd )
 		
 	return RecvRes;
 }
+int Transmit_res(TransferResult_t msg_res, SOCKET* t_socket)
+{
+	if (msg_res == TRNS_FAILED)
+	{
+		printf("Service socket error while reading, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+	else if (msg_res == TRNS_DISCONNECTED)
+	{
+		printf("Connection closed while reading, closing thread.\n");
+		closesocket(*t_socket);
+		return 1;
+	}
+	return 0;
+}
 
 int msg_creator(int size, char** msg, char* msg_type, char* param)
 {
