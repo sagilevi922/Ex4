@@ -48,7 +48,7 @@
 #define GAME_RESULTS_MSG2 "Cows: "
 #define GAME_RESULTS_MSG3 " played: "
 #define SERVER_WIN_MSG " won!\nopponents number was "
-#define SERVER_DRAW_MSG "It’s a tie\n"
+#define SERVER_DRAW_MSG "It's a tie\n"
 #define SERVER_OPPONENT_QUIT_MSG "Opponent quit.\n"
 
 
