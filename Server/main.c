@@ -477,7 +477,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 		if (SendRes == TRNS_FAILED)
 		{
 			free(AcceptedStr);
-			printf("Service socket error while writing, closing thread.\n");
+			printf("Service socket error while writing, closing thread..\n");
 			closesocket(*t_socket);
 			return 1;
 		}
