@@ -22,46 +22,44 @@
 SOCKET m_socket;
 
 //Reading data coming from the server
-static DWORD RecvDataThread(void)
+static DWORD recv_data_thread(void)
 {
-	TransferResult_t RecvRes;
-
+	TransferResult_t recv_res;
 	while (1)
 	{
-		char* AcceptedStr = NULL;
-		RecvRes = ReceiveString(&AcceptedStr, m_socket);
+		char* accepted_str = NULL;
+		recv_res = receive_string(&accepted_str, m_socket);
 
-		if (RecvRes == TRNS_FAILED)
+		if (recv_res == TRNS_FAILED)
 		{
 			printf("Socket error while trying to write data to socket\n");
 			return 0x555;
 		}
-		else if (RecvRes == TRNS_DISCONNECTED)
+		else if (recv_res == TRNS_DISCONNECTED)
 		{
 			printf("Server closed connection. Bye!\n");
 			return 0x555;
 		}
 		else
 		{
-			printf("%s\n", AcceptedStr);
+			printf("%s\n", accepted_str);
 		}
 
-		free(AcceptedStr);
+		free(accepted_str);
 	}
 
 	return 0;
 }
 
-
 // FAIL RETURN 1
-int check_recieved(TransferResult_t RecvRes)
+int check_recieved(TransferResult_t recv_res)
 {
-	if (RecvRes == TRNS_FAILED)
+	if (recv_res == TRNS_FAILED)
 	{
 		/*printf("Socket error while trying to write data to socket\n");*/
 		return 1;
 	}
-	else if (RecvRes == TRNS_DISCONNECTED)
+	else if (recv_res == TRNS_DISCONNECTED)
 	{
 		printf("Server closed connection. Bye!\n");
 		return 1;
@@ -71,28 +69,29 @@ int check_recieved(TransferResult_t RecvRes)
 
 int disconnect()
 {
-	TransferResult_t SendRes;
+	TransferResult_t send_res;
 	printf("Quitting...\n");
-	SendRes = SendString("CLIENT_DISCONNECT", m_socket);
-	if (SendRes == TRNS_FAILED)
+	send_res = send_string("CLIENT_DISCONNECT", m_socket);
+	if (send_res == TRNS_FAILED)
 	{
 		printf("Socket error while trying to write data to socket - CLIENT_DISCONNECT\n");
 		return 1;
 	}
 	return 0;
 }
+
 // 0 mean there is oppent, 1 means no oppennet
 int get_versus_respond()
 {
-	char* AcceptedStr = NULL;
+	char* accepted_str = NULL;
 	char params[MAX_PARAM_LENG];
 	char msg_type[MSG_TYPE_MAX_LENG];
 	int no_oppennet = 0;
-	TransferResult_t RecvRes;
-	TransferResult_t SendRes;
+	TransferResult_t recv_res;
+	TransferResult_t send_res;
 
-	SendRes = SendString("CLIENT_VERSUS", m_socket);
-	if (SendRes == TRNS_FAILED)
+	send_res = send_string("CLIENT_VERSUS", m_socket);
+	if (send_res == TRNS_FAILED)
 	{
 		printf("Socket error while trying to write data to socket\n");
 		return -1;
@@ -102,12 +101,12 @@ int get_versus_respond()
 		return -1;
 
 	printf("waiting for input from server\n");
-	RecvRes = ReceiveString(&AcceptedStr, m_socket);
+	recv_res = receive_string(&accepted_str, m_socket);
 
 	if (set_socket_timeout(CLIENT_TIMEOUT, m_socket)) // return timeout for socket 15 sec
 		return -1;
 
-	if (check_recieved(RecvRes))
+	if (check_recieved(recv_res))
 	{ // NOTHING RECIEVE FROM SERVER
 		printf("NOTHING RECIEVE FROM SERVER\n");
 		return -2; // TODO take care of timeout
@@ -117,19 +116,19 @@ int get_versus_respond()
 	{
 		if (STRINGS_ARE_EQUAL(msg_type, "SERVER_NO_OPPENNTS")) 
 		{
-			free(AcceptedStr);
+			free(accepted_str);
 			printf("NO OPPENNTS\n");
 			return 1;
 		}
 		else // there is oppennet
 		{
-			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
+			get_msg_type_and_params(accepted_str, &msg_type, &params);
 			printf("params: %s\n", params);
 			printf("msg_type is: %s\n", msg_type);
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_INVITE"))
 			{
 				printf(SERVER_INVITE_MSG);
-				free(AcceptedStr);
+				free(accepted_str);
 				return 0;
 
 			}
@@ -137,39 +136,36 @@ int get_versus_respond()
 	}
 	return -1; // fail
 }
+
 //Sending data to the server
-static DWORD SendDataThread(LPVOID lpParam)
+static DWORD send_data_thread(LPVOID lpParam)
 {
-	char SendStr[256];
-	TransferResult_t SendRes;
-	TransferResult_t RecvRes;
-	int choice = 0;
-	char* AcceptedStr = NULL;
+	char send_str[256];
+	TransferResult_t send_res;
+	TransferResult_t recv_res;
+	int choice = 0, no_oppennet = 0, done = 0;
+	char* accepted_str = NULL;
 	char params[MAX_PARAM_LENG];
 	char msg_type[MSG_TYPE_MAX_LENG];
-	int no_oppennet = 0;
-	int done = 0;
 
 	thread_args_client* temp_arg = (thread_args_client*)lpParam;
-	char* server_address; int server_port; char* username; SOCKADDR_IN clientService;
+	char* server_address; int server_port; char* username; SOCKADDR_IN client_service;
 	server_address = temp_arg->server_address;
 	server_port = temp_arg->server_port;
 	username= temp_arg->username;
-	clientService= temp_arg->clientService;
-
+	client_service= temp_arg->client_service;
 
 	while (!done)
 	{
-		AcceptedStr = NULL;
+		accepted_str = NULL;
 		printf("waiting for input from server\n");
-		RecvRes = ReceiveString(&AcceptedStr, m_socket);
-
-		if (check_recieved(RecvRes))
+		recv_res = receive_string(&accepted_str, m_socket);
+		if (check_recieved(recv_res))
 			return 0x555;
 
-		printf("%s\n", AcceptedStr);
+		printf("%s\n", accepted_str);
 
-		if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_MAIN_MENU"))
+		if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_MAIN_MENU"))
 		{
 			while (1) // while didnt started a game, keep bugging him
 			{
@@ -178,7 +174,7 @@ static DWORD SendDataThread(LPVOID lpParam)
 				if (choice == 2) //quitting the game
 				{
 					disconnect();
-					free(AcceptedStr);
+					free(accepted_str);
 					return 0;
 				}
 				else //want to play someone
@@ -189,14 +185,14 @@ static DWORD SendDataThread(LPVOID lpParam)
 					else if (no_oppennet == -1) // error at the the func
 					{
 						disconnect();
-						free(AcceptedStr);
+						free(accepted_str);
 						return 0;
 					}
 					else if (no_oppennet == -2) // timeout at wait - 30 sec
 					{// show fail and recinnect msg
-						if (connect_to_server(server_address, server_port, username, clientService))
+						if (connect_to_server(server_address, server_port, username, client_service))
 						{ // TODO FREE PROPER
-							free(AcceptedStr);
+							free(accepted_str);
 							return 1;
 						}
 					}
@@ -210,32 +206,32 @@ static DWORD SendDataThread(LPVOID lpParam)
 		
 		else // unreconize msg
 		{
-			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
+			get_msg_type_and_params(accepted_str, &msg_type, &params);
 			printf("params: %s\n", params);
 			printf("msg_type is: %s\n", msg_type);
 
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_INVITE"))
 			{
 				printf(SERVER_INVITE_MSG);
-				free(AcceptedStr);
+				free(accepted_str);
 				continue;
 			}
 			else
-				printf("%s what?????\n", AcceptedStr);
+				printf("%s what?????\n", accepted_str);
 		}
 
-		SendRes = SendString(SendStr, m_socket);
-		if (SendRes == TRNS_FAILED)
+		send_res = send_string(send_str, m_socket);
+		if (send_res == TRNS_FAILED)
 		{
 			printf("Socket error while trying to write data to socket\n");
 			return 0x555;
 		}
-		free(AcceptedStr);
+		free(accepted_str);
 
 	}
 	// closesocket
 }
-int countDigits(int value)
+int count_digits(int value)
 {
 	int result = 0;
 	while (value != 0) {
@@ -248,10 +244,10 @@ int countDigits(int value)
 int get_user_input_num()
 {
 	int n = 0;
-	while (countDigits(n) != 4)
+	while (count_digits(n) != 4)
 	{
 		scanf("%d", &n);
-		if (countDigits(n) != 4)
+		if (count_digits(n) != 4)
 			printf("Invalid input - Please enter 4 digits num with differnt digits\n");
 	}	
 	return n;
@@ -259,14 +255,11 @@ int get_user_input_num()
 
 void get_results(char* params, int win_mode)
 {
-	char bull = 'a';
-	char cows = 'a';
+	char bull = 'a', cows = 'a';
 	char oppenet_username[USERNAME_MAX_LENG];
 	char oppenet_move[NUM_INPUT_LENGTH];
+	int i = 4, j = 0;
 
-
-	int i = 4;
-	int j = 0;
 	if (win_mode)
 		i = 0;
 	else
@@ -306,11 +299,11 @@ void get_results(char* params, int win_mode)
 // Client.exe <server ip> <server port> <username>
 int start_game()
 {
-	char SendStr[256];
-	TransferResult_t SendRes;
-	TransferResult_t RecvRes;
+	char send_str[256];
+	TransferResult_t send_res;
+	TransferResult_t recv_res;
 	int choice = 0;
-	char* AcceptedStr = NULL;
+	char* accepted_str = NULL;
 	char params[MAX_PARAM_LENG];
 	char msg_type[MSG_TYPE_MAX_LENG];
 	int done = 0;
@@ -321,78 +314,77 @@ int start_game()
 
 	while (!done)
 	{
-		AcceptedStr = NULL;
+		accepted_str = NULL;
 		printf("waiting for input from server - START GAME\n");
-		RecvRes = ReceiveString(&AcceptedStr, m_socket);
+		recv_res = receive_string(&accepted_str, m_socket);
 
-		if (check_recieved(RecvRes))
+		if (check_recieved(recv_res))
 			return 0x555;
 
-		printf("%s\n", AcceptedStr);
+		printf("%s\n", accepted_str);
 
-		if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_SETUP_REQUEST"))
+		if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_SETUP_REQUEST"))
 		{
 			printf(SERVER_SETUP_REQUEST_MSG);
 			input_num = get_user_input_num();
 			// convert input_num to string [buf]
 
-			strcpy_s(SendStr,14, "CLIENT_SETUP:");
+			strcpy_s(send_str,14, "CLIENT_SETUP:");
 			_itoa(input_num, input_num_str, 10);
-			strcat_s(SendStr, MSG_MAX_LENG, input_num_str);
+			strcat_s(send_str, MSG_MAX_LENG, input_num_str);
 
 		}
-		else if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_PLAYER_MOVE_REQUEST"))
+		else if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_PLAYER_MOVE_REQUEST"))
 		{
 			printf(SERVER_PLAYER_MOVE_REQUEST_MSG);
 			input_num = get_user_input_num();
 			// convert input_num to string [buf]
 
-			strcpy_s(SendStr, 20, "CLIENT_PLAYER_MOVE:");
+			strcpy_s(send_str, 20, "CLIENT_PLAYER_MOVE:");
 			_itoa(input_num, input_num_str, 10);
-			strcat_s(SendStr, MSG_MAX_LENG, input_num_str);
+			strcat_s(send_str, MSG_MAX_LENG, input_num_str);
 
 		}
-		else if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_DRAW"))
+		else if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_DRAW"))
 		{
-			free(AcceptedStr);
+			free(accepted_str);
 			printf(SERVER_DRAW_MSG);
 			continue;
 		}
 		else // with params msg
 		{
-			get_msg_type_and_params(AcceptedStr, &msg_type, &params);
+			get_msg_type_and_params(accepted_str, &msg_type, &params);
 			printf("params: %s\n", params);
 			printf("msg_type is: %s\n", msg_type);
 
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_GAME_RESULTS"))
 			{
-				free(AcceptedStr);
+				free(accepted_str);
 				get_results(params,0);
 				continue;
 			}
 			else if (STRINGS_ARE_EQUAL(msg_type, "SERVER_WIN"))
 			{
-				free(AcceptedStr);
+				free(accepted_str);
 				get_results(params,1);
 				continue;
 			}
 
 			else
-				printf("%s what?????\n", AcceptedStr);
+				printf("%s what?????\n", accepted_str);
 		}
 
-		SendRes = SendString(SendStr, m_socket);
-		if (SendRes == TRNS_FAILED)
+		send_res = send_string(send_str, m_socket);
+		if (send_res == TRNS_FAILED)
 		{
 			printf("Socket error while trying to write data to socket\n");
 			return 0x555;
 		}
-		free(AcceptedStr);
+		free(accepted_str);
 
 	}
-
-
 }
+
 int init_input_vars(char* input_args[], int num_of_args, int* server_port, char** server_address, char** username)
 {
 	if (num_of_args != 4) //Not enough arguments.
@@ -473,9 +465,9 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 {
 	int reconnect = 1;
 	int choice = 0;
-	TransferResult_t RecvRes;
-	TransferResult_t SendRes;
-	char* AcceptedStr = NULL;
+	TransferResult_t recv_res;
+	TransferResult_t send_res;
+	char* accepted_str = NULL;
 	char msg[USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1];
 
 	while (reconnect)
@@ -488,7 +480,7 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 		}
 		else // Succsefull connection
 		{
-			AcceptedStr = NULL;
+			accepted_str = NULL;
 			printf("%s%s:%d\n", SUCCESSFUL_CONNECT_MSG, server_address, server_port);
 
 			////// client step 2 - CLIENT_REQUEST
@@ -496,9 +488,9 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 
 			strcat_s(msg, (USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1), username);
 
-			SendRes = SendString(msg, m_socket);
+			send_res = send_string(msg, m_socket);
 
-			if (SendRes == TRNS_FAILED)
+			if (send_res == TRNS_FAILED)
 			{
 				printf("Socket error while trying to write data to socket\n");
 				return 1;
@@ -507,17 +499,17 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 			if (set_socket_timeout(CLIENT_TIMEOUT, m_socket)) // setting timeout for socket
 				return 1;
 
-			RecvRes = ReceiveString(&AcceptedStr, m_socket);
-			printf("%s\n", AcceptedStr);
+			recv_res = receive_string(&accepted_str, m_socket);
+			printf("%s\n", accepted_str);
 
 			// if timout sending disconnect messege and try to reconnect
-			if (check_recieved(RecvRes))
+			if (check_recieved(recv_res))
 			{
 				strcpy(msg, "CLIENT_DISCONNECT");
 
-				SendRes = SendString(msg, m_socket);
+				send_res = send_string(msg, m_socket);
 
-				if (SendRes == TRNS_FAILED)
+				if (send_res == TRNS_FAILED)
 				{
 					printf("Socket error while trying to write data to socket CLIENT_DISCONNECT\n");
 					return 1;
@@ -527,15 +519,15 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 					return 1;
 			}
 
-			if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_DENIED:room is full"))
+			if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_DENIED:room is full"))
 			{
 				if (reconnect_msg(3, server_address, server_port, &m_socket))
 					return 1;
 
 			}
-			if (STRINGS_ARE_EQUAL(AcceptedStr, "SERVER_APPROVED"))
+			if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_APPROVED"))
 			{
-				free(AcceptedStr);
+				free(accepted_str);
 				reconnect = 0;
 			}
 		}
@@ -556,18 +548,16 @@ thread_args_client* create_client_thread_arg(char* server_address, int server_po
 	temp_arg->server_address = server_address;
 	temp_arg->server_port = server_port;
 	temp_arg->username = username;
-	temp_arg->clientService = clientService;
+	temp_arg->client_service = clientService;
 
 	return temp_arg;
 }
-
 
 int main(int argc, char* argv[])
 {
 	int server_port = 0;
 	char* server_address;
 	char* username;
-
 	SOCKADDR_IN clientService;
 	HANDLE hThread;
 
@@ -595,56 +585,28 @@ int main(int argc, char* argv[])
 		WSACleanup();
 		return;
 	}
-	/*
-	 The parameters passed to the socket function can be changed for different implementations.
-	 Error detection is a key part of successful networking code.
-	 If the socket call fails, it returns INVALID_SOCKET.
-	 The if statement in the previous code is used to catch any errors that may have occurred while creating
-	 the socket. WSAGetLastError returns an error number associated with the last error that occurred.
-	 */
-
-
-	 //For a client to communicate on a network, it must connect to a server.
 	 // Connect to a server.
-
 	 //Create a sockaddr_in object clientService and set  values.
 	clientService.sin_family = AF_INET;
 	clientService.sin_addr.s_addr = inet_addr(SERVER_ADDRESS_STR); //Setting the IP address to connect to
 	clientService.sin_port = htons(SERVER_PORT); //Setting the port to connect to.
 
-	/*
-		AF_INET is the Internet address family.
-	*/
-
-
+	//AF_INET is the Internet address family.
 	// Call the connect function, passing the created socket and the sockaddr_in structure as parameters. 
 	// Check for general errors.
-
 
 	if (connect_to_server(server_address, server_port, username, clientService))
 	{ // TODO FREE PROPER
 		return 1;
 	}
 
-	// Succsefull connection message
-	// Send and receive data.
-	/*
-		In this code, two integers are used to keep track of the number of bytes that are sent and received.
-		The send and recv functions both return an integer value of the number of bytes sent or received,
-		respectively, or an error. Each function also takes the same parameters:
-		the active socket, a char buffer, the number of bytes to send or receive, and any flags to use.
-
-	*/
-
 	thread_args_client* thread_args_client=NULL;
-
 	thread_args_client = create_client_thread_arg(server_address, server_port, username, clientService);
-
 
 	hThread = CreateThread(
 		NULL,
 		0,
-		(LPTHREAD_START_ROUTINE)SendDataThread,
+		(LPTHREAD_START_ROUTINE)send_data_thread,
 		thread_args_client,
 		0,
 		NULL
@@ -652,7 +614,6 @@ int main(int argc, char* argv[])
 	WaitForSingleObject(
 		hThread,
 		INFINITE); /* Waiting for the process to end */
-
 
 	TerminateThread(hThread, 0x555);
 
