@@ -69,30 +69,7 @@ int start_game();
 //Gets all the input arguments from the user - input_args, their amount - num_of_args, pointers to the server's port 
 //,the server's address and the username - server_port, server_address, username and initiate all the ointers with the data from the first argument.
 //returns 0 for success or 1 else.
-int init_input_vars(char* input_args[], int num_of_args, int* server_port, char** server_address, char** username)
-{
-	if (num_of_args != 4) //Not enough arguments.
-	{
-		printf("Invalid input')");
-		return 1;
-	}
-	if (*input_args[2] == '0') // TODO test for port length
-		*server_port = 0;
-	else
-	{
-		*server_port = strtol(input_args[2], NULL, 10);
-		if (*server_port == 0) // case of failed strtol
-		{
-			printf("invalid argument for server_port");
-			return 1;
-		}
-	}
-
-	*server_address = input_args[1];
-	*username = input_args[3];
-
-	return 0;
-}
+int init_input_vars(char* input_args[], int num_of_args, int* server_port, char** server_address, char** username);
 
 // Gets the clients coice from a given menu - 1 or 2, and returns it.
 int get_input_choice();
