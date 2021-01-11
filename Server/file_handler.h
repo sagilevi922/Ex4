@@ -26,3 +26,6 @@ HANDLE create_file_for_write(char* output_file_name, int line_length);
 // gets a string of the A new line to write, it size, and handle to the output file, and the size of the file
 // and writes that line to the end of the output file
 void write_to_file(char* new_line, int new_line_size, HANDLE oFile, DWORD dwFileSize);
+
+// gets a HANDLE and close it properly, return 1 in case of sucsseful closing, else return errorcode
+int close_handles_proper(HANDLE file_handle);

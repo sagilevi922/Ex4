@@ -1,3 +1,4 @@
+//A header that help managing all sends and recieves of messages between the client and the server.
 #pragma once
 #ifndef MSG_H
 #define MSG_H
@@ -18,22 +19,10 @@
 #define SERVER_WIN 12
 #define SERVER_DRAW 13
 #define SERVER_NO_OPPENNTS 14
-#define CLIENT_REQUEST_LENG 14
 
-//#define CLIENT_VERSUS 1
-//#define CLIENT_SETUP 2
-//#define CLIENT_PLAYER_MOVE 3
-//#define CLIENT_DISCONNECT 4
-//#define SERVER_MAIN_MENU 5
-//#define SERVER_APPROVED 6
-//#define SERVER_DENIED 7
+#define CLIENT_REQUEST_LENG 14
 #define SERVER_INVITE_LENG 14
-//#define SERVER_SETUP_REQUEST 9
-//#define SERVER_PLAYER_MOVE_REQUEST 10
-//#define SERVER_GAME_RESULTS 11
-//#define SERVER_WIN 12
-//#define SERVER_DRAW 13
-//#define SERVER_NO_OPPENNTS 14
+
 
 #define SUCCESSFUL_CONNECT_MSG "Connected to server on "
 #define FAILED__CONNECT_MSG "Failed connecting to server on "

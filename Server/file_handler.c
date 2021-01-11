@@ -1,7 +1,7 @@
 // file_handler.c
 /*
 Authors – Matan Achiel - 205642119, Sagi Levi - 205663545
-Project – Ex3 - factor.
+Project – Ex4 - Server.
 Description – This moudle is for handling files, create HANDLE
 for read or write, and also can read straign from file
 */

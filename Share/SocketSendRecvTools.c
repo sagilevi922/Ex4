@@ -1,20 +1,9 @@
 #define _CRT_SECURE_NO_WARNINGS
 
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-/* 
- This file was written for instruction purposes for the 
- course "Introduction to Systems Programming" at Tel-Aviv
- University, School of Electrical Engineering, Winter 2011, 
- by Amnon Drory, based on example code by Johnson M. Hart.
-*/
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-
 #include "SocketSendRecvTools.h"
 
 #include <stdio.h>
 #include <string.h>
-
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 TransferResult_t SendBuffer( const char* Buffer, int BytesToSend, SOCKET sd )
 {
@@ -40,7 +29,7 @@ TransferResult_t SendBuffer( const char* Buffer, int BytesToSend, SOCKET sd )
 }
 
 
-TransferResult_t SendString( const char *Str, SOCKET sd )
+TransferResult_t send_string( const char *Str, SOCKET sd )
 {
 	/* Send the the request to the server on socket sd */
 	int TotalStringSizeInBytes;
@@ -92,7 +81,7 @@ TransferResult_t ReceiveBuffer( char* OutputBuffer, int BytesToReceive, SOCKET s
 	return TRNS_SUCCEEDED;
 }
 
-TransferResult_t ReceiveString( char** OutputStrPtr, SOCKET sd )
+TransferResult_t receive_string( char** OutputStrPtr, SOCKET sd )
 {
 	/* Recv the the request to the server on socket sd */
 	int TotalStringSizeInBytes;

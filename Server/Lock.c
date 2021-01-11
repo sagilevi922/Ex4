@@ -1,7 +1,7 @@
 // Lock.c
 /*
 Authors – Matan Achiel - 205642119, Sagi Levi - 205663545
-Project – Ex3 - factor.
+Project – Ex4 - Server.
 Description – This moudle is for syncing beetwen different threads that try to 
 read and write from the same file.
 Allows for locking certain sections of code, so only specific threads can read or write.

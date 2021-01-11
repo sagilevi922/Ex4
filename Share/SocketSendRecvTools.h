@@ -8,7 +8,7 @@
 typedef enum { TRNS_FAILED, TRNS_DISCONNECTED, TRNS_SUCCEEDED } TransferResult_t;
 
 /**
- * SendBuffer() uses a socket to send a buffer.
+ * send_buffer() uses a socket to send a buffer.
  *
  * Accepts:
  * -------
@@ -28,7 +28,7 @@ TransferResult_t SendBuffer( const char* Buffer, int BytesToSend, SOCKET sd );
  * Str - the string to send. 
  * sd - the socket used for communication.
  */ 
-TransferResult_t SendString( const char *Str, SOCKET sd );
+TransferResult_t send_string( const char *Str, SOCKET sd );
 
 /**
  * Accepts:
@@ -68,7 +68,7 @@ TransferResult_t ReceiveBuffer( char* OutputBuffer, int RemainingBytesToReceive,
  * TRNS_DISCONNECTED - if the socket was disconnected
  * TRNS_FAILED - otherwise
  */ 
-TransferResult_t ReceiveString( char** OutputStrPtr, SOCKET sd );
+TransferResult_t receive_string( char** OutputStrPtr, SOCKET sd );
 
 
 #endif // SOCKET_SEND_RECV_TOOLS_H
