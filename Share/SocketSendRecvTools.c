@@ -1,3 +1,10 @@
+// SocketSendRecvTools.c
+/*
+Authors – Matan Achiel - 205642119, Sagi Levi - 205663545
+Project – Ex4 - Server.
+Description – This moudule is for handling the messages' transformation between the server and the client
+setting socket timeout and disconnect socket in a failure
+*/
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "SocketSendRecvTools.h"
@@ -5,128 +12,126 @@
 #include <stdio.h>
 #include <string.h>
 
-TransferResult_t SendBuffer( const char* Buffer, int BytesToSend, SOCKET sd )
+TransferResult_t send_buffer( const char* buffer, int bytes_to_send, SOCKET sd )
 {
-	const char* CurPlacePtr = Buffer;
-	int BytesTransferred;
-	int RemainingBytesToSend = BytesToSend;
+	const char* cur_place_ptr = buffer;
+	int bytes_transferred;
+	int remaining_bytes_to_send = bytes_to_send;
 	
-	while ( RemainingBytesToSend > 0 )  
+	while ( remaining_bytes_to_send > 0 )  
 	{
 		/* send does not guarantee that the entire message is sent */
-		BytesTransferred = send (sd, CurPlacePtr, RemainingBytesToSend, 0);
-		if ( BytesTransferred == SOCKET_ERROR ) 
+		bytes_transferred = send (sd, cur_place_ptr, remaining_bytes_to_send, 0);
+		if ( bytes_transferred == SOCKET_ERROR ) 
 		{
 			printf("send() failed, error %d\n", WSAGetLastError() );
 			return TRNS_FAILED;
 		}
 		
-		RemainingBytesToSend -= BytesTransferred;
-		CurPlacePtr += BytesTransferred; // <ISP> pointer arithmetic
+		remaining_bytes_to_send -= bytes_transferred;
+		cur_place_ptr += bytes_transferred; // <ISP> pointer arithmetic
 	}
 
 	return TRNS_SUCCEEDED;
 }
-
 
 TransferResult_t send_string( const char *Str, SOCKET sd )
 {
 	/* Send the the request to the server on socket sd */
-	int TotalStringSizeInBytes;
-	TransferResult_t SendRes;
+	int total_string_size_in_bytes;
+	TransferResult_t send_res;
 
 	/* The request is sent in two parts. First the Length of the string (stored in 
 	   an int variable ), then the string itself. */
 		
-	TotalStringSizeInBytes = (int)( strlen(Str) + 1 ); // terminating zero also sent	
+	total_string_size_in_bytes = (int)( strlen(Str) + 1 ); // terminating zero also sent	
 
-	SendRes = SendBuffer( 
-		(const char *)( &TotalStringSizeInBytes ),
-		(int)( sizeof(TotalStringSizeInBytes) ), // sizeof(int) 
+	send_res = send_buffer( 
+		(const char *)( &total_string_size_in_bytes ),
+		(int)( sizeof(total_string_size_in_bytes) ), // sizeof(int) 
 		sd );
 
-	if ( SendRes != TRNS_SUCCEEDED ) return SendRes ;
+	if ( send_res != TRNS_SUCCEEDED ) return send_res ;
 
-	SendRes = SendBuffer( 
+	send_res = send_buffer( 
 		(const char *)( Str ),
-		(int)( TotalStringSizeInBytes ), 
+		(int)( total_string_size_in_bytes ), 
 		sd );
 
-	return SendRes;
+	return send_res;
 }
 
-
-TransferResult_t ReceiveBuffer( char* OutputBuffer, int BytesToReceive, SOCKET sd )
+TransferResult_t receive_buffer( char* output_buffer, int bytes_to_receive, SOCKET sd )
 {
-	char* CurPlacePtr = OutputBuffer;
-	int BytesJustTransferred;
-	int RemainingBytesToReceive = BytesToReceive;
+	char* cur_place_ptr = output_buffer;
+	int bytes_just_transferred;
+	int remaining_bytes_to_receive = bytes_to_receive;
 	
-	while ( RemainingBytesToReceive > 0 )  
+	while ( remaining_bytes_to_receive > 0 )  
 	{
 		/* send does not guarantee that the entire message is sent */
-		BytesJustTransferred = recv(sd, CurPlacePtr, RemainingBytesToReceive, 0);
-		if ( BytesJustTransferred == SOCKET_ERROR ) 
+		bytes_just_transferred = recv(sd, cur_place_ptr, remaining_bytes_to_receive, 0);
+		if ( bytes_just_transferred == SOCKET_ERROR ) 
 		{
 			//printf("recv() failed, error %d\n", WSAGetLastError() );
 			return TRNS_FAILED;
 		}		
-		else if ( BytesJustTransferred == 0 )
+		else if ( bytes_just_transferred == 0 )
 			return TRNS_DISCONNECTED; // recv() returns zero if connection was gracefully disconnected.
 
-		RemainingBytesToReceive -= BytesJustTransferred;
-		CurPlacePtr += BytesJustTransferred; // <ISP> pointer arithmetic
+		remaining_bytes_to_receive -= bytes_just_transferred;
+		cur_place_ptr += bytes_just_transferred; // <ISP> pointer arithmetic
 	}
 
 	return TRNS_SUCCEEDED;
 }
 
-TransferResult_t receive_string( char** OutputStrPtr, SOCKET sd )
+TransferResult_t receive_string( char** output_str_ptr, SOCKET sd )
 {
 	/* Recv the the request to the server on socket sd */
-	int TotalStringSizeInBytes;
-	TransferResult_t RecvRes;
-	char* StrBuffer = NULL;
+	int total_string_size_in_bytes;
+	TransferResult_t recv_res;
+	char* str_buffer = NULL;
 
-	if ( ( OutputStrPtr == NULL ) || ( *OutputStrPtr != NULL ) )
+	if ( ( output_str_ptr == NULL ) || ( *output_str_ptr != NULL ) )
 	{
-		printf("The first input to ReceiveString() must be " 
+		printf("The first input to receive_string() must be " 
 			   "a pointer to a char pointer that is initialized to NULL. For example:\n"
-			   "\tchar* Buffer = NULL;\n"
-			   "\tReceiveString( &Buffer, ___ )\n" );
+			   "\tchar* buffer = NULL;\n"
+			   "\treceive_string( &Buffer, ___ )\n" );
 		return TRNS_FAILED;
 	}
 
 	/* The request is received in two parts. First the Length of the string (stored in 
 	   an int variable ), then the string itself. */
-		
-	RecvRes = ReceiveBuffer( 
-		(char *)( &TotalStringSizeInBytes ),
-		(int)( sizeof(TotalStringSizeInBytes) ), // 4 bytes
+	recv_res = receive_buffer( 
+		(char *)( &total_string_size_in_bytes ),
+		(int)( sizeof(total_string_size_in_bytes) ), // 4 bytes
 		sd );
 
-	if ( RecvRes != TRNS_SUCCEEDED ) return RecvRes;
+	if ( recv_res != TRNS_SUCCEEDED ) return recv_res;
 
-	StrBuffer = (char*)malloc( TotalStringSizeInBytes * sizeof(char) );
+	str_buffer = (char*)malloc( total_string_size_in_bytes * sizeof(char) );
 
-	if ( StrBuffer == NULL )
+	if ( str_buffer == NULL )
 		return TRNS_FAILED;
 
-	RecvRes = ReceiveBuffer( 
-		(char *)( StrBuffer ),
-		(int)( TotalStringSizeInBytes), 
+	recv_res = receive_buffer( 
+		(char *)( str_buffer ),
+		(int)( total_string_size_in_bytes), 
 		sd );
 
-	if ( RecvRes == TRNS_SUCCEEDED ) 
-		{ *OutputStrPtr = StrBuffer; }
+	if ( recv_res == TRNS_SUCCEEDED ) 
+		{ *output_str_ptr = str_buffer; }
 	else
 	{
-		free( StrBuffer );
+		free( str_buffer );
 	}
 		
-	return RecvRes;
+	return recv_res;
 }
-int Transmit_res(TransferResult_t msg_res, SOCKET* t_socket)
+
+int transmit_res(TransferResult_t msg_res, SOCKET* t_socket)
 {
 	if (msg_res == TRNS_FAILED)
 	{
@@ -208,25 +213,3 @@ void get_msg_type_and_params(char* input_msg, char* msg_type, char* params)
 	}
 	params[i] = '\0';
 }
-
-//int recieve_str(char* AcceptedStr, SOCKET* t_socket)
-//{
-//	TransferResult_t RecvRes;
-//	RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-//
-//	if (RecvRes == TRNS_FAILED)
-//	{
-//		printf("Service socket error while reading, closing thread.\n");
-//		closesocket(*t_socket);
-//		return 1;
-//	}
-//	else if (RecvRes == TRNS_DISCONNECTED)
-//	{
-//		printf("Connection closed while reading, closing thread.\n");
-//		closesocket(*t_socket);
-//		return 1;
-//	}
-//	else
-//		printf("Got string : %s\n", AcceptedStr);
-//	return 0;
-//}

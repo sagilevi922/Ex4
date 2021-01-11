@@ -541,7 +541,7 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 			printf("%s%s:%d\n", SUCCESSFUL_CONNECT_MSG, server_address, server_port);
 
 			////// client step 2 - CLIENT_REQUEST
-			strcpy(msg, "CLIENT_REQUEST:");
+			strcpy_s(msg, 16, "CLIENT_REQUEST:");
 
 			strcat_s(msg, (USERNAME_MAX_LENG + CLIENT_REQUEST_LENG + 1), username);
 
@@ -562,7 +562,7 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 			// if timeout sending disconnect messege and try to reconnect
 			if (check_recieved(recv_res))
 			{
-				strcpy(msg, "CLIENT_DISCONNECT");
+				strcpy_s(msg,18,"CLIENT_DISCONNECT");
 
 				send_res = send_string(msg, m_socket);
 

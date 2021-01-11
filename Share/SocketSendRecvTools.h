@@ -21,22 +21,22 @@ typedef enum { TRNS_FAILED, TRNS_DISCONNECTED, TRNS_SUCCEEDED } TransferResult_t
  * TRNS_SUCCEEDED - if sending succeeded
  * TRNS_FAILED - otherwise
  */
-TransferResult_t SendBuffer( const char* Buffer, int BytesToSend, SOCKET sd );
+TransferResult_t send_buffer( const char* buffer, int bytes_to_send, SOCKET sd );
 
 /**
- * SendString() uses a socket to send a string.
- * Str - the string to send. 
+ * send_string() uses a socket to send a string.
+ * str - the string to send. 
  * sd - the socket used for communication.
  */ 
-TransferResult_t send_string( const char *Str, SOCKET sd );
+TransferResult_t send_string( const char *str, SOCKET sd );
 
 /**
  * Accepts:
  * -------
- * ReceiveBuffer() uses a socket to receive a buffer.
- * OutputBuffer - pointer to a buffer into which data will be written
- * OutputBufferSize - size in bytes of Output Buffer
- * BytesReceivedPtr - output parameter. if function returns TRNS_SUCCEEDED, then this 
+ * receive_buffer() uses a socket to receive a buffer.
+ * output_buffer - pointer to a buffer into which data will be written
+ * output_buffer_size - size in bytes of Output Buffer
+ * bytes_received_ptr - output parameter. if function returns TRNS_SUCCEEDED, then this 
  *					  will point at an int containing the number of bytes received.
  * sd - the socket used for communication.
  *
@@ -46,19 +46,19 @@ TransferResult_t send_string( const char *Str, SOCKET sd );
  * TRNS_DISCONNECTED - if the socket was disconnected
  * TRNS_FAILED - otherwise
  */ 
-TransferResult_t ReceiveBuffer( char* OutputBuffer, int RemainingBytesToReceive, SOCKET sd );
+TransferResult_t receive_buffer( char* output_buffer, int remaining_bytes_to_receive, SOCKET sd );
 
 /**
- * ReceiveString() uses a socket to receive a string, and stores it in dynamic memory.
+ * receive_string() uses a socket to receive a string, and stores it in dynamic memory.
  * 
  * Accepts:
  * -------
- * OutputStrPtr - a pointer to a char-pointer that is initialized to NULL, as in:
+ * output_str_ptr - a pointer to a char-pointer that is initialized to NULL, as in:
  *
- *		char *Buffer = NULL;
- *		ReceiveString( &Buffer, ___ );
+ *		char *buffer = NULL;
+ *		receive_string( &buffer, ___ );
  *
- * a dynamically allocated string will be created, and (*OutputStrPtr) will point to it.
+ * a dynamically allocated string will be created, and (*output_str_ptr) will point to it.
  * 
  * sd - the socket used for communication.
  * 
@@ -68,7 +68,25 @@ TransferResult_t ReceiveBuffer( char* OutputBuffer, int RemainingBytesToReceive,
  * TRNS_DISCONNECTED - if the socket was disconnected
  * TRNS_FAILED - otherwise
  */ 
-TransferResult_t receive_string( char** OutputStrPtr, SOCKET sd );
+TransferResult_t receive_string( char** output_str_ptr, SOCKET sd );
 
+//Gets an enum msg_res which contains the message transmission's status - failure/ disconnection/ succsess and a pointer to the accept socket
+//that is assign for a client in the server - t_socket. It handles errors and closing resources if needed and returns 1 in those cases.
+// else returns 0.
+int transmit_res(TransferResult_t msg_res, SOCKET* t_socket);
+
+//Gets a pointer to a message (string) - msg, and parse it into the other (empty) arguments: the message's type to msg_type
+// and the message's parameters to param.
+int msg_creator(int size, char** msg, char* msg_type, char* param);
+
+//Gets a timeout value - timeout, and a SOCKET - sd, and set it's timeout according to the first argument.
+//returns 1 for a failure or 0 else.
+int set_socket_timeout(DWORD timeout, SOCKET sd);
+
+//Gets a SOCKET sd, the handles closing it's resources - closing it and verify it was a valid proccess. Then clean WSA resources.
+void disconnect_socket(SOCKET* sd);
+
+//Gets an input message - input_msg, message type - msg_type, and the message parameters - params
+void get_msg_type_and_params(char* input_msg, char* msg_type, char* params);
 
 #endif // SOCKET_SEND_RECV_TOOLS_H
