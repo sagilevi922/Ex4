@@ -84,6 +84,7 @@ int reconnect_msg(int msg, char* server_address, int server_port, SOCKET* m_sock
 //the server port - server_port, the client's username - username, and the address of the socket of the client - clientService. 
 //It handles all the proccess of connecting the client to the server.it returns 0 for success or 1 for any failure.
 int connect_to_server(char* server_address, int server_port, char* username, SOCKADDR_IN clientService);
+
 //Gets the address of the server - server_address,
 //the server port - server_port, the client's username - username, and the address of the socket of the client - clientService. 
 //It creates a struct to characterize the client's thread containing all the arguments, and returns a pointer to it.
