@@ -37,10 +37,7 @@ SOCKET m_socket;
 int check_recieved(TransferResult_t recv_res)
 {
 	if (recv_res == TRNS_FAILED)
-	{
-		/*printf("Socket error while trying to write data to socket\n");*/
 		return 1;
-	}
 	else if (recv_res == TRNS_DISCONNECTED)
 	{
 		printf("Server closed connection. Bye!\n");
@@ -53,7 +50,6 @@ int check_recieved(TransferResult_t recv_res)
 int disconnect(SOCKET* m_socket)
 {
 	TransferResult_t send_res;
-	printf("disconnecting...\n");
 	send_res = send_string("CLIENT_DISCONNECT", *m_socket);
 	if (send_res == TRNS_FAILED)
 	{
@@ -84,23 +80,17 @@ int get_versus_respond()
 
 	if (set_socket_timeout(VERSUS_TIMEOUT, m_socket)) // setting timeout for socket 30 sec
 		return -1;
-
-	printf("waiting for feedback about CLIENT_VERSUS from server\n");
 	recv_res = receive_string(&accepted_str, m_socket);
-
 	if (set_socket_timeout(CLIENT_TIMEOUT, m_socket)) // return timeout for socket 15 sec
 		return -1;
 
 	if (check_recieved(recv_res))
 	{ // NOTHING RECIEVE FROM SERVER
-		printf("NOTHING RECIEVE FROM SERVER\n");
 		return -2; // TODO take care of timeout
 	}
 
 	else // recieved a msg
 	{
-		printf("msg recived from CLIENT_VERSUS: %s \n", accepted_str);
-
 		if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_NO_OPPENNTS"))
 		{
 			free(accepted_str);
@@ -110,8 +100,6 @@ int get_versus_respond()
 		else // there is oppennet
 		{
 			get_msg_type_and_params(accepted_str, &msg_type, &params);
-			printf("params: %s\n", params);
-			printf("msg_type is: %s\n", msg_type);
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_INVITE"))
 			{
 				printf(SERVER_INVITE_MSG);
@@ -170,7 +158,7 @@ static DWORD send_data_thread(LPVOID lpParam){
 									if (reconnect_msg(2, server_address, server_port, &m_socket)) //closesocket
 										return 1;
 									if (connect_to_server(server_address, server_port, username, clientService))
-									{ // TODO FREE PROPER
+									{
 										free(accepted_str);
 										return 1;
 									}// go back to recieve
@@ -179,7 +167,6 @@ static DWORD send_data_thread(LPVOID lpParam){
 								}
 					else { //found an opponent, starting a game
 						if (start_game()){
-							printf("game failed\n");
 							game_finished = 1; // accept oppennet quit 
 							break;
 						}
@@ -196,17 +183,14 @@ static DWORD send_data_thread(LPVOID lpParam){
 			}
 			else // unrecognized msg - none of the above, message with parameters
 			{
-				printf("unrecognized msg\n");
 				get_msg_type_and_params(accepted_str, &msg_type, &params);
-				printf("params: %s\n", params);
-				printf("msg_type is: %s\n", msg_type);
 				if (STRINGS_ARE_EQUAL(msg_type, "SERVER_INVITE")){
 					printf(SERVER_INVITE_MSG);
 					free(accepted_str);
 					continue;
 				}
 				else
-					printf("%s what?????\n", accepted_str);
+					printf("%s - unrecognized message\n", accepted_str);
 			}
 		if (game_finished){
 			game_finished = 0;
@@ -218,7 +202,7 @@ static DWORD send_data_thread(LPVOID lpParam){
 			return 0x555;
 		}
 		free(accepted_str);
-	}// CLOSESOCKET - WHY NEED TO CLOSE SOCKETS HERE, WHEN THE GAME RUNNING WAS GOOD? NEED TO TO IT IN CASE OF ERROR.
+	}
 	return 0; //succsess game and connection
 }
 
@@ -326,8 +310,6 @@ int start_game()
 		{
 			printf(SERVER_SETUP_REQUEST_MSG);
 			input_num = get_user_input_num();
-			// convert input_num to string [buf]
-
 			strcpy_s(send_str,14, "CLIENT_SETUP:");
 			_itoa(input_num, input_num_str, 10);
 			strcat_s(send_str, MSG_MAX_LENG, input_num_str);
@@ -356,8 +338,6 @@ int start_game()
 		else // got a message with parameters from the server
 		{
 			get_msg_type_and_params(accepted_str, &msg_type, &params);
-			printf("params: %s\n", params);
-			printf("msg_type is: %s\n", msg_type);
 
 			if (STRINGS_ARE_EQUAL(msg_type, "SERVER_GAME_RESULTS"))
 			{
@@ -418,9 +398,7 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port, char*
 // Gets the clients coice from a given menu - 1 or 2, and returns it.
 int get_input_choice()
 {
-	char user_input[256];
-	// TODO FIX SIZE OF INPUT - sagi thinks it is supposed to be 1 char. can be only 1 or 2.
-
+	char user_input[NUM_INPUT_LENGTH];
 	while (1)
 	{
 		gets_s(user_input, sizeof(user_input)); //Reading a string from the keyboard
