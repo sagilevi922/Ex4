@@ -87,6 +87,12 @@ static DWORD client_thread(LPVOID lpParam);
 //Gets the real number of the opponent - real_num, and the player's guess - guess_num,
 //calculate the number of bulls and cows of the player and update the results in  the last argument: results.
 
+// starts with main thread, and lisetn to the console peridocly, when exit is insert, gracefully closes
+// all threads.
+static DWORD polling_thread();
+
+// close main socket, and if faild due to exit code return 0, else return 1 not good
+int clean_main_socket();
 
 //Main thread that gets a server port, and opens the connection, and thread for each client it accepts
 //returns 0 for success or 1 else.

@@ -170,20 +170,15 @@ static DWORD send_data_thread(LPVOID lpParam){
 	username= temp_arg->username;
 	clientService= temp_arg->client_service;
 	int game_finished = 0;
-
-	while (!done)
-	{
+	while (!done){
 		accepted_str = NULL;
 		printf("waiting for input from server\n");
 		recv_res = receive_string(&accepted_str, m_socket);
-
 		if (check_recieved(recv_res))//error while readig data from server's socket.
 			return 0x555;
 		printf("%s\n", accepted_str);
-		if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_MAIN_MENU"))
-		{
-			while (1) // while hasn't started a game, keep bugging him
-			{
+		if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_MAIN_MENU")){
+			while (1) { // while hasn't started a game, keep bugging him
 				printf(SERVER_MAIN_MENU_MSG);
 				choice = get_input_choice();
 				if (choice == 2) {//quitting the game
@@ -195,8 +190,7 @@ static DWORD send_data_thread(LPVOID lpParam){
 					no_oppennet = get_versus_respond();
 					if (no_oppennet == 1)
 						continue;
-					else if (no_oppennet == -1) // error at the func
-							{
+					else if (no_oppennet == -1) { // error at the func
 								disconnect(&m_socket);
 								free(accepted_str);
 								return 0;
@@ -214,16 +208,16 @@ static DWORD send_data_thread(LPVOID lpParam){
 									break;
 								}
 					else { //found an opponent, starting a game
-						if (start_game())
-							printf("game failed");
+						if (start_game()){
+							printf("game failed\n");
+							game_finished = 1; // accept oppennet quit 
+							break;
+						}
 						else{
 							game_finished = 1;
 							break;
-						}
-					}
-				}
-			}// here the game started
-		}
+						}}}
+			}}// here the game started
 		else if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_OPPONENT_QUIT"))
 			{
 					free(accepted_str);
@@ -346,15 +340,16 @@ int start_game()
 	int input_num = 0;
 	char input_num_str[NUM_INPUT_LENGTH];
 
+	if (set_socket_timeout(CLIENT_TIMEOUT, m_socket)) // setting timeout for socket
+		return 1;
+
 	while (!done)
 	{
 		accepted_str = NULL;
 		printf("waiting for input from server - START GAME\n");
 		recv_res = receive_string(&accepted_str, m_socket);
-
 		if (check_recieved(recv_res))
 			return 0x555;
-
 		printf("%s\n", accepted_str);
 
 		if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_SETUP_REQUEST"))
@@ -372,11 +367,9 @@ int start_game()
 		{
 			printf(SERVER_PLAYER_MOVE_REQUEST_MSG);
 			input_num = get_user_input_num(); // convert input_num to string [buf]
-
 			strcpy_s(send_str, 20, "CLIENT_PLAYER_MOVE:");
 			_itoa(input_num, input_num_str, 10);
 			strcat_s(send_str, MSG_MAX_LENG, input_num_str);
-
 		}
 		else if (STRINGS_ARE_EQUAL(accepted_str, "SERVER_DRAW"))
 		{
@@ -409,7 +402,7 @@ int start_game()
 				return 0;
 			}
 			else
-				printf("%s what?????\n", accepted_str);
+				printf("%s - unreconzie msg\n", accepted_str);
 		}
 
 		send_res = send_string(send_str, m_socket);
@@ -526,7 +519,6 @@ int connect_to_server(char* server_address, int server_port, char* username, SOC
 
 	while (reconnect)
 	{
-
 		if (connect(m_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR)
 		{
 			if (reconnect_msg(1, server_address, server_port, &m_socket))
