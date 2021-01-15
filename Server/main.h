@@ -89,7 +89,7 @@ static DWORD client_thread(LPVOID lpParam);
 
 // starts with main thread, and lisetn to the console peridocly, when exit is insert, gracefully closes
 // all threads.
-static DWORD polling_thread();
+static DWORD polling_thread(thread_args* thread_args);
 
 // close main socket, and if faild due to exit code return 0, else return 1 not good
 int clean_main_socket();

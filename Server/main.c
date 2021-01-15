@@ -35,6 +35,7 @@ by creating a unique socket and thread to represent it.
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
+thread_args *args_for_thread[MAX_THREADS];
 HANDLE thread_handles[MAX_THREADS];
 SOCKET thread_inputs[MAX_THREADS];
 int active_users = 0;
@@ -87,8 +88,6 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 static int find_unused_thread_ind(thread_args** thread_args)
 {
 	int Ind;
-	bool release_res;
-
 	for (Ind = 0; Ind < NUM_OF_CLIENTS; Ind++)
 	{
 		if (thread_handles[Ind] == NULL)
@@ -129,12 +128,16 @@ static void clean_working_threads()
 				closesocket(thread_inputs[Ind]);
 				CloseHandle(thread_handles[Ind]);
 				thread_handles[Ind] = NULL;
-				break;
+				args_for_thread[Ind] = NULL;
+				free(*(args_for_thread + Ind));
+				continue;
 			}
 			else
 			{
 				printf("Waiting for thread failed. Teminating Thread\n");
 				TerminateThread(thread_handles[Ind], BRUTAL_TERMINATION_CODE);
+				args_for_thread[Ind] = NULL;
+				free(*(args_for_thread + Ind));
 			}
 		}
 	}
@@ -318,7 +321,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 	char SendStr[MSG_MAX_LENG], msg_type[MSG_TYPE_MAX_LENG], params[MAX_PARAM_LENG], oppennet_number[NUM_INPUT_LENGTH], player_curr_guess[NUM_INPUT_LENGTH], oppennet_curr_guess[NUM_INPUT_LENGTH], results_str[5];
 	char *msg = NULL, *AcceptedStr = NULL;
 	TransferResult_t SendRes, RecvRes; 
-	bool wait_res, release_res;
+	bool wait_res;
 	if (write_input_to_file(&first, &no_oppennet, NUM_INPUT_LENGTH - 1, player_number, lock, SendStr, semaphore_gun)) 
 		return 1;
 	if (!no_oppennet){
@@ -327,6 +330,8 @@ int game_progress(int username_length, char* player_number, char* username, char
 	}
 	win = 0;
 	while (game_on){ // game started
+		if (about_to_close)
+			return 1;
 		round_results[0] = 0; round_results[1] = 0;
 		global_round++;
 		if (global_round % 2 != 0){
@@ -445,9 +450,6 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 	active_users++;
 	strcpy_s(SendStr, 16, "SERVER_APPROVED");
 	SendRes = send_string(SendStr, *t_socket);
-	printf("my username is: %s\n", username);
-	printf("my socket is  : %d\n", *t_socket);
-	printf("my msg is  : %s\n", SendStr);
 
 	if (SendRes == TRNS_FAILED)
 	{
@@ -457,9 +459,7 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 	}
 
 	strcpy_s(SendStr, 17, "SERVER_MAIN_MENU");
-	printf("my username is: %s\n", username);
-	printf("my socket is  : %d\n", *t_socket);
-	printf("my msg is4  : %s\n", SendStr);
+
 	SendRes = send_string(SendStr, *t_socket);
 
 	if (SendRes == TRNS_FAILED)
@@ -482,12 +482,12 @@ static DWORD client_thread(LPVOID lp_param)
 {
 	int round_results[2] = { 0 };
 	int write_res = 0, i = 0, Ind = 0, username_length = 0, start_pos = 0, end_pos = 0, bytes_to_read = 0, no_oppennet = 1 , first = 0;
-	bool release_res, error_indicator = 0, Done = FALSE, wait_res;
+	bool error_indicator = 0, Done = FALSE;
 	printf("thread start.\n");
-	char SendStr[MSG_MAX_LENG], * msg = NULL, * newline = NULL, username[USERNAME_MAX_LENG], oppenet_username[USERNAME_MAX_LENG], * AcceptedStr = NULL, exit_string[5];
-	char msg_type[MSG_TYPE_MAX_LENG], params[MAX_PARAM_LENG], player_number[NUM_INPUT_LENGTH], oppennet_number[NUM_INPUT_LENGTH], player_curr_guess[NUM_INPUT_LENGTH], oppennet_curr_guess[NUM_INPUT_LENGTH];
+	char SendStr[MSG_MAX_LENG], * msg = NULL, * newline = NULL, username[USERNAME_MAX_LENG], oppenet_username[USERNAME_MAX_LENG], * AcceptedStr = NULL;
+	char msg_type[MSG_TYPE_MAX_LENG], params[MAX_PARAM_LENG];
 	TransferResult_t SendRes, RecvRes;
-	HANDLE oFile, hFile, semaphore_gun;
+	HANDLE semaphore_gun;
 	DWORD dwFileSize = 0;
 	SOCKET* t_socket;
 	lock* lock;
@@ -614,9 +614,8 @@ int clean_main_socket()
 
 int main(int argc, char* argv[])
 {
-	thread_args* thread_args[MAX_THREADS];
 	SOCKET accepted_sockets[MAX_THREADS];
-	int server_port = 0, ind, loop, bind_res,listen_res, startup_res;
+	int server_port = 0, ind, bind_res,listen_res, startup_res;
 	unsigned long address;
 	SOCKADDR_IN service;
 	WSADATA wsa_data;
@@ -682,7 +681,7 @@ int main(int argc, char* argv[])
 	if (NULL == semaphore_gun)
 		return 1;
 	while(server_up){ // while(server up) -- accept new clients
-		ind = find_unused_thread_ind(thread_args); // clean threads that are finished
+		ind = find_unused_thread_ind(args_for_thread); // clean threads that are finished
 		accepted_sockets[ind] = accept(main_socket, NULL, NULL);
 		if (accepted_sockets[ind] == INVALID_SOCKET){
 			if (server_up)
@@ -693,8 +692,8 @@ int main(int argc, char* argv[])
 				return 1;
 			return 0;
 		}
-		thread_args[ind] = create_thread_arg(&accepted_sockets[ind], lock, semaphore_gun);
-		if (NULL == thread_args[ind]){
+		args_for_thread[ind] = create_thread_arg(&accepted_sockets[ind], lock, semaphore_gun);
+		if (NULL == args_for_thread[ind]){
 			DestroyLock(lock);
 			clean_working_threads();
 			if (clean_main_socket())
@@ -706,7 +705,7 @@ int main(int argc, char* argv[])
 											// AcceptSocket, instead close 
 											// ThreadInputs[Ind] when the
 											// time comes.
-		thread_handles[ind] = CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)client_thread,(thread_args[ind]),0,NULL);
+		thread_handles[ind] = CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)client_thread,(args_for_thread[ind]),0,NULL);
 	} 
 	return 0;
 }

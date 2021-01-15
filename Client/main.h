@@ -31,8 +31,6 @@ typedef struct thread_arguments_client {
 
 //Declerations.............................................
 
-//Reading data coming from the server. return 0 or the error code else.
-static DWORD recv_data_thread(void);
 
 // gets the status of reading data from the server - the enum variable recv_res and return 0 for a success or 1 for a failure.
 int check_recieved(TransferResult_t recv_res);

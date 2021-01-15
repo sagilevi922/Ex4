@@ -16,7 +16,7 @@ HANDLE get_input_file_handle(char* input_file_name);
 // it should start reading, and how many bytes to read
 // and copy it to a dynamic string.
 // if fails returns NULL
-char* txt_file_to_str(HANDLE hFile, int start_pos, int input_size);
+char* txt_file_to_str(HANDLE hFile, int start_pos, int input_size, char* input_txt);
 
 // gets a string of the output file name, open a file with this name if exist,
 // and then return a handle to this file

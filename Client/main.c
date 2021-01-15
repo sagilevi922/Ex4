@@ -33,36 +33,6 @@ SOCKET m_socket;
 
 //Implementations..........................................
 
-//Reading data coming from the server. return 0 or the error code else.
-static DWORD recv_data_thread(void)
-{
-	TransferResult_t RecvRes;
-	while (1)
-	{
-		char* AcceptedStr = NULL;
-		RecvRes = receive_string(&AcceptedStr, m_socket);
-
-		if (RecvRes == TRNS_FAILED)
-		{
-			printf("Socket error while trying to write data to socket\n");
-			return 0x555;
-		}
-		else if (RecvRes == TRNS_DISCONNECTED)
-		{
-			printf("Server closed connection. Bye!\n");
-			return 0x555;
-		}
-		else
-		{
-			printf("%s\n", AcceptedStr);
-		}
-
-		free(AcceptedStr);
-	}
-
-	return 0;
-}
-
 // gets the status of reading data from the server - the enum variable recv_res and return 0 for a success or 1 for a failure.
 int check_recieved(TransferResult_t recv_res)
 {
@@ -270,7 +240,7 @@ int get_user_input_num()
 	int n = 0;
 	while (count_digits(n) != 4)
 	{
-		scanf("%d", &n);
+		scanf_s("%d", &n);
 		if (count_digits(n) != 4)
 			printf("Invalid input - Please enter 4 digits num with differnt digits\n");
 	}	
@@ -664,10 +634,10 @@ int main(int argc, char* argv[])
 	);
 
 	WaitForSingleObject(hThread, INFINITE); /* Waiting for the process to end */
+	free(thread_args_client);
 	TerminateThread(hThread, 0x555);
 	CloseHandle(hThread);
 	closesocket(m_socket);
 	WSACleanup();
-
 	return 0;
 }
