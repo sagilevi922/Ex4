@@ -32,6 +32,9 @@ by creating a unique socket and thread to represent it.
 #include "file_handler.h"
 #include "main.h"
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
+#include <conio.h> 
+
+
 
 HANDLE thread_handles[MAX_THREADS];
 SOCKET thread_inputs[MAX_THREADS];
@@ -40,6 +43,8 @@ int win = 0;
 int global_round = 0;
 int global_read = 0;
 int about_to_close = 0;
+int server_up = 1;
+SOCKET main_socket = INVALID_SOCKET;
 
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 thread_args* create_thread_arg(SOCKET* socket, lock* lock, HANDLE semaphore_gun)
@@ -136,6 +141,8 @@ static void clean_working_threads()
 			}
 		}
 	}
+	server_up = 0;
+	closesocket(main_socket);
 }
 
 int get_oppenet_info(int first, int client_input_length, char* oppenet_input, lock* lock, HANDLE semaphore_gun)
@@ -742,6 +749,27 @@ static DWORD client_thread(LPVOID lp_param)
 	return 0;
 }
 
+static DWORD polling_thread()
+{
+	printf("ENTER POLLING THREAD\n");
+
+	char exit_word[EXIT_WORD_LENGTH + 1];
+	while (1) {
+		if (_kbhit() != 0) {
+			scanf_s(" %s", exit_word, EXIT_WORD_LENGTH + 1);
+			if (STRINGS_ARE_EQUAL(exit_word, EXIT_WORD))
+			{
+				printf("FUCKING DONE\n");
+				break;
+			}
+		}
+		else
+			Sleep(POLLING_TIME);
+		}
+	clean_working_threads();
+	return 0;
+}
+
 int main(int argc, char* argv[])
 {
 	thread_args* thread_args[MAX_THREADS];
@@ -751,11 +779,21 @@ int main(int argc, char* argv[])
 	else
 		printf("Unable to delete the file\n");
 
+	HANDLE poll_thread = NULL;
+	
+	poll_thread = CreateThread(
+		NULL,
+		0,
+		(LPTHREAD_START_ROUTINE)polling_thread,
+		NULL,
+		0,
+		NULL
+	);
+
 	int server_port = 0;
 
 	int ind;
 	int loop;
-	SOCKET main_socket = INVALID_SOCKET;
 	unsigned long address;
 	SOCKADDR_IN service;
 	int bind_res;
@@ -831,10 +869,19 @@ int main(int argc, char* argv[])
 	if (listen_res == SOCKET_ERROR)
 	{
 		printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
+
 		if (closesocket(main_socket) == SOCKET_ERROR)
-			printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+		{
+			if (server_up)
+				printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+		}
 		if (WSACleanup() == SOCKET_ERROR)
-			printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+		{
+			if (server_up)
+				printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+		}
+		if (!server_up)
+			return 0;
 		return 1;
 	}
 
@@ -856,7 +903,7 @@ int main(int argc, char* argv[])
 		return 1;
 
 	// while(server up) -- accept new clients
-	for (loop = 0; loop < 4; loop++)
+	while(server_up)
 	{
 
 		ind = find_unused_thread_ind(thread_args); // clean threads that are finished
@@ -864,12 +911,21 @@ int main(int argc, char* argv[])
 		accepted_sockets[ind] = accept(main_socket, NULL, NULL);
 		if (accepted_sockets[ind] == INVALID_SOCKET)
 		{
-			printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
+			if (server_up)
+				printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
 			clean_working_threads();
 			if (closesocket(main_socket) == SOCKET_ERROR)
-				printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+			{
+				if (server_up)
+					printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+			}
 			if (WSACleanup() == SOCKET_ERROR)
-				printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+			{
+				if (server_up)
+					printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+			}
+			if (!server_up)
+				return 0;
 			return 1;
 		}
 
@@ -883,7 +939,6 @@ int main(int argc, char* argv[])
 		}
 
 		printf("Client Connected.\n");
-
 		thread_inputs[ind] = accepted_sockets[ind]; // shallow copy: don't close 
 											// AcceptSocket, instead close 
 											// ThreadInputs[Ind] when the

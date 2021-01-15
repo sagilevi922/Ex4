@@ -22,3 +22,6 @@
 #define THREADS_FILE_NAME "GameSession.txt"
 #define NUM_INPUT_LENGTH 5
 #define MSG_MAX_LENG 100
+#define EXIT_WORD_LENGTH 4
+#define EXIT_WORD "exit"
+#define POLLING_TIME 1000
