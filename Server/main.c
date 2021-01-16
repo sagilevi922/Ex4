@@ -24,7 +24,6 @@ by creating a unique socket and thread to represent it.
 #include <ws2tcpip.h>
 #pragma comment(lib, "Ws2_32.lib")
 
-
 #include "comm_tools.h"
 #include "HardCodedData.h"
 #include "msg.h"
@@ -64,7 +63,7 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port)
 {
 	if (num_of_args != 2) //Not enough arguments.
 	{
-		printf("Invalid input, Please provide encrypted file path, enc/dec key, number of threads and action mode('e'/'d')");
+		printf("Invalid input");
 		return 1;
 	}
 
@@ -429,7 +428,6 @@ int accept_new_player(SOCKET* t_socket, int* username_length, char** username)
 		return 1;
 
 	// check how many active users
-	printf("trying to connect, current actrive users: %d\n", active_users);
 	if (active_users == 2)
 	{
 		printf("No slots available for client, dropping the connection.\n");
@@ -615,10 +613,8 @@ int main(int argc, char* argv[])
 	WSADATA wsa_data;
 	HANDLE semaphore_gun = NULL;
 	lock* lock = NULL;
-	if (remove(THREADS_FILE_NAME) == 0) // reseting the game file
-		printf("Deleted successfully\n");
-	else
-		printf("Unable to delete the file\n");
+	remove(THREADS_FILE_NAME); // reseting the game file
+
 	HANDLE poll_thread = NULL;
 	poll_thread = CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)polling_thread,NULL,0,NULL);
 	if (init_input_vars(argv, argc, &server_port))

@@ -373,7 +373,7 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port, char*
 {
 	if (num_of_args != 4) //Not enough arguments.
 	{
-		printf("Invalid input')");
+		printf("Invalid input");
 		return 1;
 	}
 	if (*input_args[2] == '0') 
