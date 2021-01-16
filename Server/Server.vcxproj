@@ -141,16 +141,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\Share\comm_tools.h" />
     <ClInclude Include="..\Share\HardCodedData.h" />
     <ClInclude Include="..\Share\msg.h" />
-    <ClInclude Include="..\Share\SocketExampleShared.h" />
-    <ClInclude Include="..\Share\SocketSendRecvTools.h" />
     <ClInclude Include="file_handler.h" />
     <ClInclude Include="Lock.h" />
     <ClInclude Include="main.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Share\SocketSendRecvTools.c" />
+    <ClCompile Include="..\Share\comm_tools.c" />
     <ClCompile Include="file_handler.c" />
     <ClCompile Include="Lock.c" />
     <ClCompile Include="main.c" />

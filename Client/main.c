@@ -22,8 +22,7 @@ by creating a unique socket and thread to represent it.
 #include <ws2tcpip.h>
 #pragma comment(lib, "Ws2_32.lib")
 
-#include "SocketExampleShared.h"
-#include "SocketSendRecvTools.h"
+#include "comm_tools.h"
 #include "msg.h"
 #include "HardCodedData.h"
 #include "main.h"
@@ -377,7 +376,7 @@ int init_input_vars(char* input_args[], int num_of_args, int* server_port, char*
 		printf("Invalid input')");
 		return 1;
 	}
-	if (*input_args[2] == '0') // TODO test for port length
+	if (*input_args[2] == '0') 
 		*server_port = 0;
 	else
 	{
@@ -588,8 +587,8 @@ int main(int argc, char* argv[])
 	 // Connect to a server.
 	 //Create a sockaddr_in object clientService and set  values.
 	client_service.sin_family = AF_INET;
-	client_service.sin_addr.s_addr = inet_addr(SERVER_ADDRESS_STR); //Setting the IP address to connect to
-	client_service.sin_port = htons(SERVER_PORT); //Setting the port to connect to.
+	client_service.sin_addr.s_addr = inet_addr(server_address); //Setting the IP address to connect to
+	client_service.sin_port = htons(server_port); //Setting the port to connect to.
 
 	// Call the connect function, passing the created socket and the sockaddr_in structure as parameters. 
 	// Check for general errors.

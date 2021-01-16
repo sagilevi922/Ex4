@@ -165,7 +165,7 @@ void write_to_file(char* new_line, int new_line_size, HANDLE oFile, DWORD dwFile
 
 	DWORD  dwBytesWritten = 0;
 	DWORD  file_ptr;
-	printf("trying to write to file: %s\n", new_line);
+	//printf("trying to write to file: %s\n", new_line);
 
 	file_ptr = SetFilePointer(
 		oFile,

@@ -1,4 +1,4 @@
-// SocketSendRecvTools.c
+// COMM_TOOLS.c
 /*
 Authors – Matan Achiel - 205642119, Sagi Levi - 205663545
 Project – Ex4 - Server.
@@ -7,7 +7,7 @@ setting socket timeout and disconnect socket in a failure
 */
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "SocketSendRecvTools.h"
+#include "comm_tools.h"
 
 #include <stdio.h>
 #include <string.h>

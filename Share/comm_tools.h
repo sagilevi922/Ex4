@@ -1,5 +1,5 @@
-#ifndef SOCKET_SEND_RECV_TOOLS_H
-#define SOCKET_SEND_RECV_TOOLS_H
+#ifndef COMM_TOOLS_H
+#define COMM_TOOLS_H
 
 #include <winsock2.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -89,4 +89,4 @@ void disconnect_socket(SOCKET* sd);
 //Gets an input message - input_msg, message type - msg_type, and the message parameters - params
 void get_msg_type_and_params(char* input_msg, char* msg_type, char* params);
 
-#endif // SOCKET_SEND_RECV_TOOLS_H
+#endif // COMM_TOOLS_H

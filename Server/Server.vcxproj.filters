@@ -27,12 +27,6 @@
     <ClInclude Include="..\Share\HardCodedData.h">
       <Filter>Shared Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Share\SocketExampleShared.h">
-      <Filter>Shared Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Share\SocketSendRecvTools.h">
-      <Filter>Shared Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Lock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -42,11 +36,11 @@
     <ClInclude Include="main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Share\comm_tools.h">
+      <Filter>Shared Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Share\SocketSendRecvTools.c">
-      <Filter>Shared Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -55,6 +49,9 @@
     </ClCompile>
     <ClCompile Include="file_handler.c">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Share\comm_tools.c">
+      <Filter>Shared Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

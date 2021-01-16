@@ -8,7 +8,7 @@
 
 #define ERROR_CODE ((int)(-1))
 #define THREADS_LIMIT 64
-#define MAX_WAITING_TIME 15000 //15000
+#define MAX_WAITING_TIME 15000 //15000 -- for semphpore timing
 #define SERVER_TIMEOUT 15000 //15000
 #define WAIT_FOR_THREAD_TIME 15000 //15000
 #define NUM_OF_CLIENTS 2
@@ -25,3 +25,9 @@
 #define EXIT_WORD_LENGTH 4
 #define EXIT_WORD "exit"
 #define POLLING_TIME 1000
+
+#define SERVER_ADDRESS_MAX_LENG 16
+#define USERNAME_MAX_LENG 21
+#define SERVER_ADDRESS_STR "127.0.0.1"
+#define STRINGS_ARE_EQUAL( str1, str2 ) ( strcmp( (str1), (str2) ) == 0 )
+

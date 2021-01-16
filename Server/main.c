@@ -24,16 +24,14 @@ by creating a unique socket and thread to represent it.
 #include <ws2tcpip.h>
 #pragma comment(lib, "Ws2_32.lib")
 
-#include "SocketExampleShared.h"
-#include "SocketSendRecvTools.h"
+
+#include "comm_tools.h"
 #include "HardCodedData.h"
 #include "msg.h"
 #include "Lock.h"
 #include "file_handler.h"
 #include "main.h"
 #include <conio.h> 
-
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
 thread_args *args_for_thread[MAX_THREADS];
 HANDLE thread_handles[MAX_THREADS];
@@ -46,7 +44,6 @@ int about_to_close = 0;
 int server_up = 1;
 SOCKET main_socket = INVALID_SOCKET;
 
-/*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 thread_args* create_thread_arg(SOCKET* socket, lock* lock, HANDLE semaphore_gun)
 {
 	thread_args* temp_arg = (thread_args*)malloc(sizeof(thread_args));
@@ -171,26 +168,26 @@ int get_oppenet_info(int first, int client_input_length, char* oppenet_input, lo
 		return 1;
 	}
 	dwFileSize = GetFileSize(hFile, NULL);
-	printf("dwFileSize%d\n", dwFileSize);
+	//printf("dwFileSize%d\n", dwFileSize);
 
 	if (first)
 	{
-		printf("first\n");
+		//printf("first\n");
 		start_pos = client_input_length;
 		end_pos = dwFileSize;
 		bytes_to_read = end_pos - start_pos;
-		printf("start_pos%d\n", start_pos);
-		printf("bytes to read%d\n", bytes_to_read);
+		//printf("start_pos%d\n", start_pos);
+		//printf("bytes to read%d\n", bytes_to_read);
 
 	}
 	else
 	{
-		printf("second\n");
+		//printf("second\n");
 		start_pos = 0;
 		end_pos = dwFileSize - client_input_length;
 		bytes_to_read = end_pos - start_pos;
-		printf("start_pos%d\n", start_pos);
-		printf("bytes to read%d\n", bytes_to_read);
+		//printf("start_pos%d\n", start_pos);
+		//printf("bytes to read%d\n", bytes_to_read);
 	}
 
 	for (i = 0; i < bytes_to_read; i++)
@@ -209,20 +206,18 @@ int get_oppenet_info(int first, int client_input_length, char* oppenet_input, lo
 	if (global_read == 1)
 	{
 		release_write(lock); // Releasing Write lock
-		printf("IM WAITING remove\n");
 		wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
 		if (wait_res != WAIT_OBJECT_0)
 		{
-			printf("semaphore_gun WaitForSingleObject timed out\n");
+			//printf("semaphore_gun WaitForSingleObject timed out\n");
 			remove(THREADS_FILE_NAME); // in case of timeout deleting the file before writing
-		}
-		else
-			printf("got free\n");
+		} // else got free
+
 	}
 	else if (global_read == 2)
 	{
 		release_write(lock); // Releasing Write lock
-		printf("IM freeing remove\n");
+		//printf("IM freeing remove\n");
 		remove(THREADS_FILE_NAME); // reseting the file before releasing
 		release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
 		if (release_res == FALSE)
@@ -271,12 +266,12 @@ int write_input_to_file(int* first, int* no_oppennet, int input_length, char* cl
 
 	oFile = create_file_for_write(THREADS_FILE_NAME, 0);
 	if (NULL == oFile) {
-		printf("Error while opening file to write\n");
+		//printf("Error while opening file to write\n");
 		release_write(lock);
 		return 1;
 	}
 	dwFileSize = GetFileSize(oFile, NULL);
-	printf("After open file handle to write, it size: %d\n", dwFileSize);
+	//printf("After open file handle to write, it size: %d\n", dwFileSize);
 	if (dwFileSize) // Im first
 		*first = 0;
 	else
@@ -289,24 +284,23 @@ int write_input_to_file(int* first, int* no_oppennet, int input_length, char* cl
 	if (*first)
 	{
 
-		printf("IM WAITING after write to file\n");
 		release_write(lock); // Releasing Write loc
 		wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME);
 		if (wait_res != WAIT_OBJECT_0)
 		{
-			printf("semaphore_gun WaitForSingleObject timed out\n");
+			//printf("semaphore_gun WaitForSingleObject timed out\n");
 			strcpy(SendStr, "SERVER_NO_OPPENNTS");
 			remove(THREADS_FILE_NAME);
 		}
 		else
 		{
 			*no_oppennet = 0;
-			printf("got free after write to file\n");
+			//printf("got free after write to file\n");
 		}
 	}
 	else
 	{
-		printf("IM freeing after write to file\n");
+		//printf("IM freeing after write to file\n");
 		release_write(lock); // Releasing Write lock
 		release_res = ReleaseSemaphore(semaphore_gun, 1, NULL);
 		if (release_res == FALSE)
@@ -337,7 +331,7 @@ int game_progress(int username_length, char* player_number, char* username, char
 		if (global_round % 2 != 0){
 			wait_res = WaitForSingleObject(semaphore_gun, MAX_WAITING_TIME); // WAITING for next round
 			if (wait_res != WAIT_OBJECT_0){
-				printf("semaphore_gun WaitForSingleObject timed out\n");
+				//printf("semaphore_gun WaitForSingleObject timed out\n");
 				return 1;
 			}} // else got free for next round
 		else if (ReleaseSemaphore(semaphore_gun, 1, NULL) == FALSE)
@@ -483,7 +477,7 @@ static DWORD client_thread(LPVOID lp_param)
 	int round_results[2] = { 0 };
 	int write_res = 0, i = 0, Ind = 0, username_length = 0, start_pos = 0, end_pos = 0, bytes_to_read = 0, no_oppennet = 1 , first = 0;
 	bool error_indicator = 0, Done = FALSE;
-	printf("thread start.\n");
+	//printf("thread start.\n");
 	char SendStr[MSG_MAX_LENG], * msg = NULL, * newline = NULL, username[USERNAME_MAX_LENG], oppenet_username[USERNAME_MAX_LENG], * AcceptedStr = NULL;
 	char msg_type[MSG_TYPE_MAX_LENG], params[MAX_PARAM_LENG];
 	TransferResult_t SendRes, RecvRes;
@@ -509,14 +503,14 @@ static DWORD client_thread(LPVOID lp_param)
 		if (about_to_close)
 			break;
 		AcceptedStr = NULL;
-		printf("Waiting for new input\n");
+		printf("Waiting for new input from: %s\n", username);
 		RecvRes = receive_string(&AcceptedStr, *t_socket);
 		if (transmit_res(RecvRes, t_socket)) {
 			error_indicator = 1;
 			break;
 		}
 		else
-			printf("Got string : %s\n", AcceptedStr);
+			printf("Got string : %s from: %s\n", AcceptedStr, username);
 		if (STRINGS_ARE_EQUAL(AcceptedStr, "CLIENT_DISCONNECT")){
 			printf("CLIENT_DISCONNECT\n"); // DELETE
 			break;
@@ -653,7 +647,7 @@ int main(int argc, char* argv[])
 	}
 	service.sin_family = AF_INET;
 	service.sin_addr.s_addr = address;
-	service.sin_port = htons(SERVER_PORT); //The htons function converts a u_short from host to TCP/IP network byte order 
+	service.sin_port = htons(server_port); //The htons function converts a u_short from host to TCP/IP network byte order 
 									   //( which is big-endian ).
 	bind_res = bind(main_socket, (SOCKADDR*)&service, sizeof(service));
 	if (bind_res == SOCKET_ERROR){
